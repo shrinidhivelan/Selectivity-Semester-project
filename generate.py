@@ -40,10 +40,10 @@ def generate_mice_data(mouse_names):
         filtered_units = filtered_units[cons_columns]
 
         # proc_data = spike_detection(unit_table, event_times)
-        data = spike_detection(filtered_units, trials, type = 'whisker')
-        data = spike_detection(data, trials, type = 'auditory')
-        data = spike_detection(data, trials, type = 'lick_stim', file=nwbfile)
-
+        #data = spike_detection(filtered_units, trials, type = 'whisker')
+        #data = spike_detection(data, trials, type = 'auditory')
+        #data = spike_detection(data, trials, type = 'lick_stim', file=nwbfile)
+        data = spike_detect(filtered_units, trials, 0.2, 0.2, nwbfile)
         # Create a new dataframe 
 
         data['pre'] = 0.2 #pre_time

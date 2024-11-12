@@ -1,0 +1,8 @@
+# Overall 
+whisker
+auditory
+lick_stim -> Use lick simply
+wh/aud (or wh_aud while creating new folders)
+
+# naming the files :
+use small letters

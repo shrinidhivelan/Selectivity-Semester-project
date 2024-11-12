@@ -1,3 +1,8 @@
+# everything under the data folder
+Data/
+plots/
+
+
 # Nwb file
 *.nwb
 

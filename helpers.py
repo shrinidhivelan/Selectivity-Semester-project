@@ -5,21 +5,55 @@ from sklearn.metrics import roc_curve, auc, roc_auc_score
 import os
 
 
-""" 
-def extract_event_times(nwb_file, type):
-    # Read nwb_file
-    #io.
-    trials = nwb_file.trials.to_dataframe()
 
-    if type == 'spontaneous_licks':
-        _, filtered_lick = filtered_lick_times(nwb_file, 1)
 
-    elif type == 'whisker':
-        #whisker_times = #...
-    return event_times
-"""
+
         
-# def spike_detect(unit_tsble, event_ties, statt, stsop)
+def spike_detect(unit_table, trials, start, stop, nwbfile):
+    
+    def extract_event_times():
+        trials = nwbfile.trials.to_dataframe()
+        #if type == 'spontaneous_licks':
+        if type == 'lick_stim':
+            _, event_time = filtered_lick_times(nwbfile, 1)
+        else:
+            event_time =  trials[trials[type + '_stim'] == 1]['start_time'].values
+        return event_time
+
+    # Helper function to count spikes within a given time window
+    def count_spikes_in_window(spike_times, start_time, end_time):
+        return len(spike_times[(spike_times >= start_time) & (spike_times <= end_time)])
+    
+    table = unit_table.copy()
+    types = ["whisker", "auditory", "lick_stim"]
+
+    for type in types:
+        if type + '_pre_spikes' not in table.columns:
+            table[type + '_pre_spikes'] = [[] for _ in range(len(table))]
+        if type + '_post_spikes' not in table.columns:
+            table[type + '_post_spikes'] = [[] for _ in range(len(table))]
+        
+
+        
+        event_times = extract_event_times()
+
+        for unit_id, row in table.iterrows():
+            spike_times = row['spike_times']
+            pre_spikes, post_spikes = [], []
+
+            # Calculate pre- and post-spike counts for each lick time
+            for event in event_times:
+                # Pre-stimulus window
+                pre_spikes.append(count_spikes_in_window(spike_times, event - start, event))
+                # Post-stimulus window
+                post_spikes.append(count_spikes_in_window(spike_times, event, event + stop))
+
+            # Assign lists to the DataFrame columns
+            table.at[unit_id, type + '_pre_spikes'] = pre_spikes
+            table.at[unit_id, type + '_post_spikes'] = post_spikes
+    return table
+
+
 def spike_detection(table, trials, type='whisker', start=0.2, stop=0.2, file=''):
     # use either trials table 
     # Ensure columns for pre- and post-spikes are initialized as lists
