@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, roc_auc_score 
 import os
 import ast
+from generate import *
+from auc_analysis import *
+from AUC import *
+
 
 
 def barplots_specific(df, column_name = "ccf_acronym", category_name = "Aud/Wh", show = False):
@@ -228,3 +232,51 @@ def visualize_lick_times(array, filtered, start = 0, end = 0):
     ax.legend()
     plt.title("Lick Times Event Plot")
     plt.show()
+
+
+def AUC_plots(mouse_names = []):
+    mice_data = []
+    for i, mouse_name in enumerate(mouse_names):
+        df = pd.read_parquet(f'Data/{mouse_name}/{mouse_name}_Selectivity_Dataframe.parquet')
+        # Check whether we want to save or visualize the files:
+        print("Starting to save files!")
+        save_overall_auc(df, mouse_name)
+
+
+
+def plot_pre_post(df):
+    interesting_whisker_AUC = df[abs(df["Transformed whisker_AUC"])>0.5]
+    interesting_auditory_AUC = df[abs(df["Transformed auditory_AUC"])>0.5]
+    interesting_wa_AUC = df[abs(df["Transformed wh/aud AUC"])>0.5]
+    interesting_lick_stim_AUC = df[abs(df["Transformed lick_stim AUC"])>0.5]
+
+    for i in range(len(interesting_whisker_AUC)):
+        plot_single_roc(
+            interesting_whisker_AUC["whisker_pre_spikes"].iloc[i], 
+            interesting_whisker_AUC["whisker_post_spikes"].iloc[i], 
+            interesting_whisker_AUC["cluster_id"].iloc[i], 
+            index=i, type = 'whisker'
+        )    
+
+    for i in range(len(interesting_auditory_AUC)):
+        plot_single_roc(
+            interesting_auditory_AUC["auditory_pre_spikes"].iloc[i], 
+            interesting_auditory_AUC["auditory_post_spikes"].iloc[i], 
+            interesting_auditory_AUC["cluster_id"].iloc[i], 
+            index=i, type = "auditory"
+        )
+
+    for i in range(len(interesting_wa_AUC)):
+        plot_single_roc(
+            interesting_wa_AUC["whisker_post_spikes"].iloc[i], 
+            interesting_wa_AUC["auditory_post_spikes"].iloc[i], 
+            interesting_wa_AUC["cluster_id"].iloc[i], 
+            index=i, type = "wh/aud"
+        )
+    for i in range(len(interesting_lick_stim_AUC)):
+        plot_single_roc(
+            interesting_lick_stim_AUC["lick_stim_post_spikes"].iloc[i], 
+            interesting_lick_stim_AUC["lick_stim_post_spikes"].iloc[i], 
+            interesting_lick_stim_AUC["cluster_id"].iloc[i], 
+            index=i, type = "lick_stim"
+        )
