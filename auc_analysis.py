@@ -36,7 +36,7 @@ def plot_bootstrap_auc_distribution(df, bootstrap_aucs, original_auc, cluster_id
     plt.tight_layout()
     plt.show()
 
-def calculate_ROC2(whisker_pre, whisker_post, index, cluster_ID, type="whisker"):
+def calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type="whisker"):
     # Combine data and labels
     whisker_spike_counts = np.concatenate([whisker_pre[index], whisker_post[index]])
     labels = np.concatenate([np.ones(len(whisker_pre[index])), np.zeros(len(whisker_post[index]))])
@@ -61,7 +61,7 @@ def perform_bootstrap_roc_analysis(whisker_pre, whisker_post, cluster_id, n_iter
     for i in tqdm(range(len(cluster_id)), desc="Processing Clusters"):
 
         # Calculate ROC for current cluster
-        fpr, tpr, thresholds, labels, roc_auc, whisker_spike_counts = calculate_ROC2(
+        fpr, tpr, thresholds, labels, roc_auc, whisker_spike_counts = calculate_ROC(
             whisker_pre, whisker_post, i, cluster_id, type=type
         )
 
@@ -125,27 +125,23 @@ def compute_AUC(row, type="whisker"):
         _, _, _, roc_auc = calculate_ROC_individual(row["whisker_post_spikes"], row["auditory_post_spikes"], row["cluster_id"], type)
     return roc_auc
 
-def calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type = "whisker"):
-    # Combine data and labels of the two elements we want to test agaib
+def calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type="whisker"):
+    # Combine data and labels
     whisker_spike_counts = np.concatenate([whisker_pre[index], whisker_post[index]])
-    len_per_element_pre = len(whisker_pre[index])
-    len_per_element_post = len(whisker_post[index])
-    # note invert
-    labels = np.concatenate([np.zeros(len_per_element_pre), np.ones(len_per_element_post)])
+    labels = np.concatenate([np.ones(len(whisker_pre[index])), np.zeros(len(whisker_post[index]))])
     clu_id = cluster_ID[index]
     
     # Compute the ROC curve
     fpr, tpr, thresholds = roc_curve(labels, whisker_spike_counts)
     #roc_auc = auc(fpr, tpr)
     roc_auc = roc_auc_score(labels, whisker_spike_counts)
-
-    return fpr, tpr, thresholds, labels, roc_auc
+    return fpr, tpr, thresholds, labels, roc_auc, whisker_spike_counts
 
 
 def plot_roc_curve(ax, whisker_pre, whisker_post, index, cluster_ID, type="whisker"):
 
     # Calculate ROC
-    fpr, tpr, thresholds, labels, roc_auc = calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type)
+    fpr, tpr, thresholds, labels, roc_auc, _ = calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type)
     transformed_auc = 2 * roc_auc - 1
     
     # Plot the ROC Curve
@@ -271,7 +267,7 @@ def plot_analysis(whisker_pre, whisker_post, i, cluster_id, bootstrap_aucs_whisk
     """
 
     # Assuming calculate_ROC2 is defined elsewhere and returns the required values
-    fpr, tpr, thresholds, labels, original_auc, whisker_spike_counts = calculate_ROC2(
+    fpr, tpr, thresholds, labels, original_auc, whisker_spike_counts = calculate_ROC(
         whisker_pre, whisker_post, i, cluster_id, type="Whisker"
     )
 

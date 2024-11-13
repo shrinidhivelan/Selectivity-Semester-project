@@ -16,14 +16,14 @@ from helpers import *
 from plot import *
 from AUC import *
 
-def generate_mice_data(mouse_names, path):
+
+def generate_mice_data(mouse_names):
 
     mice_data = []
-
     for mouse in mouse_names:
     
         # Load the file with the mice data
-        io = NWBHDF5IO(f'{path}/{mouse}.nwb', mode='r')
+        io = NWBHDF5IO(f'/Users/shrinidhivelan/Desktop/Selectivity-Semester-project/{mouse}.nwb', mode='r')
         nwbfile = io.read()
         # To do : create a list of mouse names, to be used for the .py file.
         mouse_name = mouse
@@ -38,20 +38,15 @@ def generate_mice_data(mouse_names, path):
         # Some chosen columns
         cons_columns  = ["cluster_id", "firing_rate", "ccf_acronym", "ccf_name", "ccf_parent_acronym", "ccf_parent_name", "spike_times"]#, "lick_flag", "lick_time"]
         filtered_units = filtered_units[cons_columns]
-        
-        """ 
-        # proc_data = spike_detection(unit_table, event_times)
-        #data = spike_detection(filtered_units, trials, type = 'whisker')
-        #data = spike_detection(data, trials, type = 'auditory')
-        #data = spike_detection(data, trials, type = 'lick_stim', file=nwbfile)
-        """
-        
+
         data = spike_detect(filtered_units, trials, 0.2, 0.2, nwbfile)
+
+
         # Create a new dataframe 
 
-        data['pre_time'] = 0.2 #pre
-        data['post_time'] = 0.2 #post
-        data['mouse_id'] = mouse_name # Mouse name
+        data['pre_time'] = 0.2 #pre_time
+        data['post_time'] = 0.2 #post_time
+        data['mouse_id'] = mouse_name #mouse_id
 
 
         folder = f'Data/{mouse_name}'
@@ -62,16 +57,21 @@ def generate_mice_data(mouse_names, path):
 
     # Combine all event DataFrames into a single DataFrame
     df_combined = pd.concat(mice_data).reset_index(drop=True)
-    #os.makedirs('Data/Overall', exist_ok=True)
-    #df_combined.to_parquet(f'Data/Overall/Mice_Selectivity_Dataframe.parquet', index=False)
-    return df_combined
+    os.makedirs('Data/Overall', exist_ok=True)
+    df_combined.to_parquet(f'Data/Overall/Mice_Selectivity_Dataframe.parquet', index=False)
+    return df_combined, mice_data
 
 
-def AUC_generate(df, mouse_names = [], save_files = False, visualize = False, nb_neurons = 100, pre_vs_post_visualization = False):
+
+
+
+def AUC_generate(mouse_names = [], save_files = False, visualize = False, nb_neurons = 100, pre_vs_post_visualization = False):
     mice_data = []
     for i, mouse_name in enumerate(mouse_names):
 
-        #df = pd.read_parquet(f'Data/{mouse_name}/{mouse_name}_Selectivity_Dataframe.parquet')
+        df = pd.read_parquet(f'Data/{mouse_name}/{mouse_name}_Selectivity_Dataframe.parquet')
+        #mice_dfs[i] #
+        
 
         # Check whether we want to save or visualize the files:
         if (save_files): 
@@ -103,7 +103,7 @@ def AUC_generate(df, mouse_names = [], save_files = False, visualize = False, nb
         print("Creating pivot table!")
         df_clean = create_combined_df(df)
 
-        df_clean['Mouse name'] = mouse_name
+        df_clean['mouse_id'] = mouse_name
 
         ### save the parquet file :
         df_clean.to_parquet(f'Data/{mouse_name}/{mouse_name}_AUC_Selectivity.parquet', index=False)

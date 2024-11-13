@@ -93,7 +93,7 @@ def pivot_table(df):
     # Whisker columns
     df_whisker = df[['cluster_id', 'firing_rate', 'ccf_acronym', 'ccf_name', 
                     'ccf_parent_acronym', 'ccf_parent_name', 'spike_times', 
-                    'whisker_pre_spikes', 'whisker_post_spikes', 'pre', 'post', 
+                    'whisker_pre_spikes', 'whisker_post_spikes', 'pre_time', 'pre_time', 
                     'Whisker_AUC', 'Transformed Whisker_AUC', 
                     'p-values positive Whisker', 'p-values negative Whisker', 
                     'selective Whisker', 'direction Whisker']].copy()
@@ -114,7 +114,7 @@ def pivot_table(df):
     # Repeat similar steps for Auditory
     df_auditory = df[['cluster_id', 'firing_rate', 'ccf_acronym', 'ccf_name', 
                     'ccf_parent_acronym', 'ccf_parent_name', 'spike_times', 
-                    'auditory_pre_spikes', 'auditory_post_spikes', 'pre', 'post', 
+                    'auditory_pre_spikes', 'auditory_post_spikes', 'pre_time', 'pre_time', 
                     'Auditory_AUC', 'Transformed Auditory_AUC', 
                     'p-values positive Auditory', 'p-values negative Auditory', 
                     'selective Auditory', 'direction Auditory']].copy()
@@ -132,7 +132,7 @@ def pivot_table(df):
     # Similarly for Aud/Wh
     df_aud_wh = df[['cluster_id', 'firing_rate', 'ccf_acronym', 'ccf_name', 
                     'ccf_parent_acronym', 'ccf_parent_name', 'spike_times', 
-                    'pre', 'post', 'Wh/Aud AUC', 'Transformed Wh/Aud AUC', 
+                    'pre_time', 'post_time', 'Wh/Aud AUC', 'Transformed Wh/Aud AUC', 
                     'p-values positive Aud/Wh', 'p-values negative Aud/Wh', 
                     'selective Aud/Wh', 'direction Aud/Wh']].copy()
 

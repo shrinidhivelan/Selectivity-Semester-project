@@ -243,7 +243,6 @@ def AUC_plots(mouse_names = []):
         save_overall_auc(df, mouse_name)
 
 
-
 def plot_pre_post(df):
     interesting_whisker_AUC = df[abs(df["Transformed whisker_AUC"])>0.5]
     interesting_auditory_AUC = df[abs(df["Transformed auditory_AUC"])>0.5]
