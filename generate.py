@@ -12,15 +12,19 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import ast
+
+
+from AUC import *
 from helpers import *
 from plot import *
-from AUC import *
 
 
 def generate_mice_data(folder_path):
 
     mouse_names = []
     mice_data = []
+
+    folder_path = Path(folder_path) 
 
     for filepath in folder_path.glob("*.nwb"):
         

@@ -5,7 +5,6 @@ from sklearn.metrics import roc_curve, auc, roc_auc_score
 import os
 import ast
 from generate import *
-from auc_analysis import *
 from AUC import *
 
 

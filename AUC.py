@@ -79,7 +79,7 @@ def perform_bootstrap_roc_analysis(whisker_pre, whisker_post, cluster_id, n_iter
             p_values_pos.append(np.nan)
             p_values_neg.append(np.nan)
             original_aucs.append(np.nan)
-            continue
+            return None, None, None, None
         
         # Store the original AUC for this cluster
         original_aucs.append(roc_auc)
@@ -104,7 +104,7 @@ def perform_bootstrap_roc_analysis(whisker_pre, whisker_post, cluster_id, n_iter
         p_values_pos.append(p_value_pos)
         p_values_neg.append(p_value_neg)
 
-    return p_values_pos, p_values_neg, original_aucs
+    return p_values_pos, p_values_neg, bootstrap_aucs, original_aucs
 
 
 def calculate_ROC_individual(pre, post, cluster_ID):
