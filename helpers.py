@@ -7,104 +7,70 @@ import os
 
 
 
+def extract_event_times(nwbfile, type = 'whisker', context = 'passive'):
 
-        
-def spike_detect(unit_table, trials, start, stop, nwbfile):
+    trials = nwbfile.trials.to_dataframe()
+    if type == 'spontaneous_licks':
+        _, event_time = filtered_lick_times(nwbfile, 1)
+    else:
+        event_time =  trials[(trials[type + '_stim'] == 1) & (trials['lick_flag']==1) & (trials['context']==context)]['start_time'].values
+    return event_time
+
+
+def spike_detect(nwbfile, unit_table, trials, start=0.2, stop=0.2, file=''):
+    # use either trials table 
+    # Ensure columns for pre- and post-spikes are initialized as lists
     
-    def extract_event_times():
-        trials = nwbfile.trials.to_dataframe()
-        #if type == 'spontaneous_licks':
-        if type == 'lick_stim':
-            _, event_time = filtered_lick_times(nwbfile, 1)
-        else:
-            event_time =  trials[trials[type + '_stim'] == 1]['start_time'].values
-        return event_time
-
     # Helper function to count spikes within a given time window
     def count_spikes_in_window(spike_times, start_time, end_time):
         return len(spike_times[(spike_times >= start_time) & (spike_times <= end_time)])
     
     table = unit_table.copy()
-    types = ["whisker", "auditory", "lick_stim"]
+    types = ["whisker", "auditory", "spontaneous_licks"]
+    context = ["passive", "active"]
 
     for type in types:
-        if type + '_pre_spikes' not in table.columns:
-            table[type + '_pre_spikes'] = [[] for _ in range(len(table))]
-        if type + '_post_spikes' not in table.columns:
-            table[type + '_post_spikes'] = [[] for _ in range(len(table))]
+
+        if type == 'spontaneous_licks':
+            if type + '_pre_spikes' not in table.columns:
+                table[type + '_pre_spikes'] = [[] for _ in range(len(table))]
+            if type + '_post_spikes' not in table.columns:
+                table[type + '_post_spikes'] = [[] for _ in range(len(table))]
+            contexts = [""]
         
+        else:
+            contexts = ["passive", "active"]
+            for context in contexts:
+                if type + "_" + context +  '_pre_spikes' not in table.columns:
+                    table[type + "_" + context + '_pre_spikes'] = [[] for _ in range(len(table))]
+                if type + "_" + context + '_post_spikes' not in table.columns:
+                    table[type + "_" + context + '_post_spikes'] = [[] for _ in range(len(table))]
 
-        
-        event_times = extract_event_times()
+        for context in contexts:        
+            event_times = extract_event_times(nwbfile, type, context)
 
-        for unit_id, row in table.iterrows():
-            spike_times = row['spike_times']
-            pre_spikes, post_spikes = [], []
+            for unit_id, row in table.iterrows():
+                spike_times = row['spike_times']
+                pre_spikes, post_spikes = [], []
 
-            # Calculate pre- and post-spike counts for each lick time
-            for event in event_times:
-                # Pre-stimulus window
-                pre_spikes.append(count_spikes_in_window(spike_times, event - start, event))
-                # Post-stimulus window
-                post_spikes.append(count_spikes_in_window(spike_times, event, event + stop))
-
-            # Assign lists to the DataFrame columns
-            table.at[unit_id, type + '_pre_spikes'] = pre_spikes
-            table.at[unit_id, type + '_post_spikes'] = post_spikes
-    return table
-
-
-def spike_detection(table, trials, type='whisker', start=0.2, stop=0.2, file=''):
-    # use either trials table 
-    # Ensure columns for pre- and post-spikes are initialized as lists
-    if type + '_pre_spikes' not in table.columns:
-        table[type + '_pre_spikes'] = [[] for _ in range(len(table))]
-    if type + '_post_spikes' not in table.columns:
-        table[type + '_post_spikes'] = [[] for _ in range(len(table))]
-
-    # Helper function to count spikes within a given time window
-    def count_spikes_in_window(spike_times, start_time, end_time):
-        return len(spike_times[(spike_times >= start_time) & (spike_times <= end_time)])
-
-    # If type is 'lick_stim', use the filtered lick times
-    if type == 'lick_stim':
-        assert file, "File is empty, give a nwbfile!"
-        _, filtered_lick = filtered_lick_times(file, 1)
-        
-        for unit_id, row in table.iterrows():
-            spike_times = row['spike_times']
-            pre_spikes, post_spikes = [], []
-
-            # Calculate pre- and post-spike counts for each lick time
-            for lick_time in filtered_lick:
-                # Pre-stimulus window
-                pre_spikes.append(count_spikes_in_window(spike_times, lick_time - start, lick_time))
-                # Post-stimulus window
-                post_spikes.append(count_spikes_in_window(spike_times, lick_time, lick_time + stop))
-
-            # Assign lists to the DataFrame columns
-            table.at[unit_id, type + '_pre_spikes'] = pre_spikes
-            table.at[unit_id, type + '_post_spikes'] = post_spikes
-
-    # For other stimulus types
-    else:
-        for unit_id, row in table.iterrows():
-            spike_times = row['spike_times']
-            pre_spikes, post_spikes = [], []
-
-            for _, trial in trials.iterrows():
-                if trial[type + '_stim'] == 1:
+                # Calculate pre- and post-spike counts for each lick time
+                for event in event_times:
                     # Pre-stimulus window
-                    pre_spikes.append(count_spikes_in_window(spike_times, trial['start_time'] - start, trial['start_time']))
+                    pre_spikes.append(count_spikes_in_window(spike_times, event - start, event))
                     # Post-stimulus window
-                    post_spikes.append(count_spikes_in_window(spike_times, trial['start_time'], trial['start_time'] + stop))
+                    post_spikes.append(count_spikes_in_window(spike_times, event, event + stop))
 
-            # Assign lists to the DataFrame columns
-            table.at[unit_id, type + '_pre_spikes'] = pre_spikes
-            table.at[unit_id, type + '_post_spikes'] = post_spikes
-
+                # Assign lists to the DataFrame columns
+                if type == 'spontaneous_licks':
+                    table.at[unit_id, type + '_pre_spikes'] = pre_spikes
+                    table.at[unit_id, type + '_post_spikes'] = post_spikes
+                else:
+                    table.at[unit_id, type + "_" + context + '_pre_spikes'] = pre_spikes
+                    table.at[unit_id, type + "_" + context + '_post_spikes'] = post_spikes
     return table
-    # return proc_data
+ 
+
+
 
 
 
@@ -449,11 +415,9 @@ def filtered_lick_times(nwbfile, interval = 1):
 
     # Access data interfaces
     data_interfaces = behavior.data_interfaces
-    # Extract behavioral events and time series
-    behavioral_events = data_interfaces['BehavioralEvents']  # Assuming 'BehavioralEvents' is a defined interface
-    #time_series = behavior.time_series  # Access the time series data
+    behavioral_events = data_interfaces['BehavioralEvents']  
     piezo_lick_times_series = behavioral_events.time_series['piezo_lick_times']
-    piezo_lick_time = piezo_lick_times_series.data[:]  # Extract data as an array
+    piezo_lick_time = piezo_lick_times_series.data[:]  
 
     auditory_hit = behavioral_events.time_series['auditory_hit_trial'].data[:]
     auditory_miss = behavioral_events.time_series['auditory_miss_trial'].data[:]
@@ -462,4 +426,6 @@ def filtered_lick_times(nwbfile, interval = 1):
 
     filtered_piezo = lick_times(piezo_lick_time, interval, auditory_hit = auditory_hit, auditory_miss = auditory_miss, whisker_hit = whisker_hit, whisker_miss = whisker_miss)
     return piezo_lick_time, filtered_piezo
+
+
 # utiliser iter tools -> iterer pour tous les cas differents au lieu de considérer : pairwise 

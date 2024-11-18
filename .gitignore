@@ -1,6 +1,7 @@
 # everything under the data folder
 Data/
 plots/
+mice/
 
 
 # Nwb file
