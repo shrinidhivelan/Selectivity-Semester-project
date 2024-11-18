@@ -111,15 +111,15 @@ def AUC_generate(mouse_names = [], save_files = False, visualize = False, nb_neu
 
 
         ### save the parquet file :
-        combined_df.to_parquet(f'Data/{mouse_name}/{mouse_name}_AUC_Selectivity2.parquet', index=False)
+        combined_df.to_parquet(f'/Volumes/LaCie/EPFL/Master sem3/Semester Project Lsens/Data/{mouse_name}/{mouse_name}_AUC_Selectivity2.parquet', index=False)
         print(f"Process finished for Mouse {i+1}/{len(mouse_names)}!")
         mice_data.append(combined_df)
     
 
      # Combine all event DataFrames into a single DataFrame
     df_combined = pd.concat(mice_data).reset_index(drop=True)
-    os.makedirs('Data/Overall', exist_ok=True)
-    df_combined.to_parquet(f'Data/Overall/Mice_AUC_Selectivity2.parquet', index=False)
+    os.makedirs('/Volumes/LaCie/EPFL/Master sem3/Semester Project Lsens/Data/Overall', exist_ok=True)
+    df_combined.to_parquet(f'/Volumes/LaCie/EPFL/Master sem3/Semester Project Lsens/Data/Overall/Mice_AUC_Selectivity2.parquet', index=False)
     
 
     return df_combined
