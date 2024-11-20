@@ -3,6 +3,8 @@ Data/
 plots/
 mice/
 
+# text file for personal use:
+terms_definition_throughout.txt
 
 # Nwb file
 *.nwb
