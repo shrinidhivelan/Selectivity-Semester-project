@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, roc_auc_score 
 import os
-import ast
 from generate import *
 from AUC import *
 
@@ -53,11 +52,6 @@ def barplots_specific(df, column_name = "ccf_acronym", category_name = "Aud/Wh",
         # Close the plot to free up memory
         plt.close()
 
-import pandas as pd
-import matplotlib.pyplot as plt
-
-import pandas as pd
-import matplotlib.pyplot as plt
 
 def plot_neuron_counts_with_percentages(df, offset=2, category='Whisker'):
     """
@@ -155,11 +149,7 @@ def plot_neuron_percentages(df, offset=2, category='Whisker'):
     plt.legend(['Non-Selective', 'Selective'])
     plt.show()
 
-# Usage example
-# plot_neuron_counts_with_percentages(your_dataframe, offset=2, category='Whisker')
 
-# Usage example
-# plot_neuron_counts_with_percentages(your_dataframe, offset=2, category='Whisker')
 
 def plot_selective_neuron_percentage(df, offset=2, category='Whisker'):
     """

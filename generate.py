@@ -1,22 +1,11 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc, roc_auc_score 
 import os
-import ast
 from pynwb import NWBHDF5IO
-from nwbwidgets import nwb2widget
-from nwbwidgets.allen import AllenRasterWidget
-from nwbwidgets.allen import AllenPSTHWidget
-import pandas as pd
-import numpy as np
 from pathlib import Path
-import ast
 
 
 from AUC import *
 from helpers import *
-from plot import *
 
 
 def generate_mice_data(folder_path):
