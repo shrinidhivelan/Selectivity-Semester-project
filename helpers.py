@@ -22,7 +22,7 @@ def preprocessing(nwbfile):
     filtered_units = units[(units['bc_label'] == 'good') & (units['ccf_acronym'].str.contains('[A-Z]'))]
 
     # Some chosen columns
-    cons_columns  = ["cluster_id", "firing_rate", "ccf_acronym", "ccf_name", "ccf_parent_acronym", "ccf_parent_name", "spike_times"]
+    cons_columns  = ["cluster_id", "firing_rate", "ccf_acronym", "ccf_name", "ccf_parent_acronym", "ccf_parent_id","ccf_parent_name", "spike_times"]
     filtered_units = filtered_units[cons_columns]
 
     return filtered_units, trials
@@ -48,11 +48,17 @@ def extract_event_times(nwbfile, type = 'whisker', context = 'passive'):
         _, event_time = filtered_lick_times(nwbfile, 1)
     else:
         # Extract event times for specified type, context, and lick_flag
-        event_time =  trials[
-            (trials[type + '_stim'] == 1) &  # Stimulus type must match
-            (trials['lick_flag'] == 1) &    # Lick flag must be true
-            (trials['context'] == context)  # Context must match
-        ]['start_time'].values
+        if context == 'active':
+            event_time =  trials[
+                (trials[type + '_stim'] == 1) &  # Stimulus type must match
+                (trials['lick_flag'] == 1) &    # Lick flag must be true
+                (trials['context'] == context)  # Context must match
+            ]['start_time'].values
+        else: 
+            event_time = trials[
+                (trials[type + '_stim'] == 1) &  # Stimulus type must match
+                (trials['context'] == context)  # Context must match
+            ]['start_time'].values
 
     return event_time
 
@@ -80,7 +86,7 @@ def spike_detect(nwbfile, start=0.2, stop=0.2):
     
     # Define event types and contexts
     types = ["whisker", "auditory", "spontaneous_licks"]
-    context = ["passive", "active"]
+    #context = ["passive", "active"]
 
     for type in types:
         # Handle column initialization for spontaneous licks separately

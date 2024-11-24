@@ -8,10 +8,11 @@ from AUC import *
 from helpers import *
 
 
-def generate_mice_data(folder_path):
+
+def generate_mice_data(folder_path, save_path):
     """
     Process NWB files in a folder to extract selectivity data for multiple mice.
-    
+
     Args:
         folder_path (str or Path): Path to the folder containing NWB files.
     
@@ -26,54 +27,57 @@ def generate_mice_data(folder_path):
     mice_data = []
 
     # Convert folder_path to a Path object if it's not already
-    folder_path = Path(folder_path) 
+    Path_folder = Path(folder_path) 
+    
+    if not any(Path_folder.glob("*.nwb")):
+        raise FileNotFoundError(f"No NWB files found in the directory: {folder_path}")
 
-    for filepath in folder_path.glob("*.nwb"):
+    for filepath in Path_folder.glob("*.nwb"):
+        print(filepath)
         
         if not filepath.name.startswith("._"):  # Skip hidden files 
-            continue 
 
-        print(f"Processing file: {filepath.name}")
+            print(f"Processing file: {filepath.name}")
 
-        # Extract mouse name from the file name (excluding extension)    
-        mouse_name = filepath.name[:-4]  
-        mouse_names.append(mouse_name)
+            # Extract mouse name from the file name (excluding extension)    
+            mouse_name = filepath.name[:-4]  
+            mouse_names.append(mouse_name)
 
-        # Read nwbfile
-        io = NWBHDF5IO(str(filepath), 'r') 
-        nwbfile = io.read()
+            # Read nwbfile
+            io = NWBHDF5IO(str(filepath), 'r') 
+            nwbfile = io.read()
 
-        
-        # Generate data using the spike_detect function from the nwbfile: 
-        data_total = spike_detect(nwbfile, 0.2, 0.2)
-    
-        # Metadata columns
-        data_total['pre_time'] = 0.2 
-        data_total['post_time'] = 0.2 
-        data_total['mouse_id'] = mouse_name 
+            
+            # Generate data using the spike_detect function from the nwbfile: 
+            data_total = spike_detect(nwbfile, 0.2, 0.2)
 
-        # Drop problematic columns, if they exist
-        if 'electrode_group' in data_total.columns:
-            data_total = data_total.drop(columns=['electrode_group'])
+            # Metadata columns
+            data_total['pre_time'] = 0.2
+            data_total['post_time'] = 0.2
+            data_total['mouse_id'] = mouse_name 
 
-        # Create and save individual mouse data to a parquet file
-        folder = f'Data/{mouse_name}'
-        os.makedirs(folder, exist_ok=True)
-        data_total.to_parquet(f'{folder}/{mouse_name}_Selectivity_Dataframe2.parquet', index=False)
+            # Drop problematic columns, if they exist
+            if 'electrode_group' in data_total.columns:
+                data_total = data_total.drop(columns=['electrode_group'])
 
-        # Append to main mice_data 
-        mice_data.append(data_total)
+            # Create and save individual mouse data to a parquet file
+            folder = f'{save_path}/{mouse_name}'
+            os.makedirs(folder, exist_ok=True)
+            data_total.to_parquet(f'{folder}/{mouse_name}_Selectivity_Dataframe2.parquet', index=False)
+
+            # Append to main mice_data 
+            mice_data.append(data_total)
 
     # Combine all event DataFrames into a single DataFrame
     df_combined = pd.concat(mice_data).reset_index(drop=True)
 
     # Save the combined data to an overall folder
-    os.makedirs('Data/Overall', exist_ok=True)
-    df_combined.to_parquet(f'Data/Overall/Mice_Selectivity_Dataframe2.parquet', index=False)
+    os.makedirs(f'{save_path}/Overall', exist_ok=True)
+    df_combined.to_parquet(f'{save_path}/Overall/Mice_Selectivity_Dataframe2.parquet', index=False)
     return mouse_names
 
 
-def AUC_generate(mouse_names = [], save_files = False, visualize = False, nb_neurons = 100, pre_vs_post_visualization = False, start = 0.2, stop = 0.2):
+def AUC_generate(mouse_names = [], save_path = "", save_files = False, visualize = False, nb_neurons = 100, pre_vs_post_visualization = False, start = 0.2, stop = 0.2):
     """
     Generate AUC (Area Under Curve) data for multiple mice, including bootstrapping and saving results.
 
@@ -93,7 +97,7 @@ def AUC_generate(mouse_names = [], save_files = False, visualize = False, nb_neu
     df_combined = []  # Placeholder for the final combined DataFrame
 
     for i, mouse_name in enumerate(mouse_names):
-        df = pd.read_parquet(f'Data/{mouse_name}/{mouse_name}_Selectivity_Dataframe2.parquet')
+        df = pd.read_parquet(f'{save_path}/{mouse_name}/{mouse_name}_Selectivity_Dataframe2.parquet')
     
         # Check whether we want to save or visualize the files:
         if (save_files): 
@@ -134,7 +138,7 @@ def AUC_generate(mouse_names = [], save_files = False, visualize = False, nb_neu
 
 
         ### save separate parquet files for each mouse :
-        combined_df.to_parquet(f'/Volumes/LaCie/EPFL/Master sem3/Semester Project Lsens/Data/{mouse_name}/{mouse_name}_AUC_Selectivity2.parquet', index=False)
+        combined_df.to_parquet(f'{save_path}/{mouse_name}/{mouse_name}_AUC_Selectivity2.parquet', index=False)
         
         print(f"Process finished for Mouse {i+1}/{len(mouse_names)}!")
         mice_data.append(combined_df)
@@ -142,8 +146,8 @@ def AUC_generate(mouse_names = [], save_files = False, visualize = False, nb_neu
 
     # Combine all mouse DataFrames into a single DataFrame
     df_combined = pd.concat(mice_data).reset_index(drop=True)
-    os.makedirs('/Volumes/LaCie/EPFL/Master sem3/Semester Project Lsens/Data/Overall', exist_ok=True)
-    df_combined.to_parquet(f'/Volumes/LaCie/EPFL/Master sem3/Semester Project Lsens/Data/Overall/Mice_AUC_Selectivity2.parquet', index=False)
+    os.makedirs(f'{save_path}/Overall', exist_ok=True)
+    df_combined.to_parquet(f'{save_path}/Overall/Mice_AUC_Selectivity2.parquet', index=False)
     
 
     return df_combined
