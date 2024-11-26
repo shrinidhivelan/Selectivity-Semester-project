@@ -408,53 +408,6 @@ def plot_analysis(whisker_pre, whisker_post, i, cluster_id, bootstrap_aucs_whisk
 
 
 
-def save_overall_auc(df, mouse_name):
-
-    whisker_pre = df["whisker_pre_spikes"]
-    whisker_post = df["whisker_post_spikes"]
-    auditory_pre = df["auditory_pre_spikes"]
-    auditory_post = df["auditory_post_spikes"]
-    lick_stim_pre = df["lick_stim_pre_spikes"]
-    lick_stim_post = df["lick_stim_post_spikes"]
-
-    cluster_id = df["cluster_id"]
-
-    save_roc_plots(whisker_pre, whisker_post, cluster_id, "whisker", mouse_name = mouse_name)
-    save_roc_plots(auditory_pre, auditory_post, cluster_id, "auditory", mouse_name = mouse_name)
-    save_roc_plots(whisker_post, auditory_post, cluster_id, "wh_aud", mouse_name = mouse_name)
-    save_roc_plots(lick_stim_pre, lick_stim_post, cluster_id, "lick_stim", mouse_name = mouse_name)
-
-def visualize_auc(df, nb_neurons=100):
-
-    whisker_pre = df["whisker_pre_spikes"]
-    whisker_post = df["whisker_post_spikes"]
-    cluster_id = df["cluster_id"]
-    auditory_pre = df["auditory_pre_spikes"]
-    auditory_post = df["auditory_post_spikes"]
-    lick_stim_pre = df["lick_stim_pre_spikes"]
-    lick_stim_post = df["lick_stim_post_spikes"]
-
-
-    # Whisker visualization plot
-    plot_subplots(whisker_pre, whisker_post, cluster_id, "whisker", 4, nb_neurons)
-
-    # Auditory visualization plot
-    plot_subplots(auditory_pre, auditory_post, cluster_id, "auditory", 4, nb_neurons)#, 4, len(cluster_id))
-
-    # Whisker vs Auditory visualization plot 
-    plot_subplots(whisker_post, auditory_post, cluster_id, "wh/aud", 4, nb_neurons)
-
-    # Lick stim pre vs post visualization
-    plot_subplots(lick_stim_pre, lick_stim_post, cluster_id, "wh/aud", 4, nb_neurons)
-
-
-def AUC_plots(mouse_names = []):
-    mice_data = []
-    for mouse_name in mouse_names:
-        df = pd.read_parquet(f'Data/{mouse_name}/{mouse_name}_Selectivity_Dataframe.parquet')
-        # Check whether we want to save or visualize the files:
-        print("Starting to save files!")
-        save_overall_auc(df, mouse_name)
 
 
 ########### The following function is used to visualize pre-post behaviour ###########
