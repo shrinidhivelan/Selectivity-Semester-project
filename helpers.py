@@ -1,5 +1,6 @@
 
 ########### Find functions to generate the data ###########
+import pandas as pd
 
 def preprocessing(nwbfile):
     """
@@ -273,3 +274,34 @@ def filtered_lick_times(nwbfile, interval = 1):
 
 
 # utiliser iter tools -> iterer pour tous les cas differents au lieu de considérer : pairwise 
+
+
+########### General functions for dataframe generating :###########
+
+def convert_to_csv(mouse_names):
+    main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/'
+    # Create a list of Parquet file paths
+    file_paths = [f"{main_folder}{mouse}/{mouse}_AUC_Selectivity2.parquet" for mouse in mouse_names]
+    for i, file in enumerate(file_paths):
+        print(f"Doing file {i+1}/{len(file_paths)}")
+        df = pd.read_parquet(file)
+        df.to_csv(main_folder+mouse_names[i]+"/"+mouse_names[i]+"_AUC_Selectivity.csv", index=False)
+
+
+def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757']):
+    #mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
+    #           'AB123_20240806_110231', 'AB122_20240804_134554', 'AB119_20240731_102619', 'AB117_20240723_125437', 'AB116_20240724_102941']
+
+    main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/'
+
+    #AB116_20240724_102941_AUC_Selectivity2.parquet
+
+    mice_data = []
+
+    for i, mouse in enumerate(mouse_names):
+        print(f'{i+1}/{len(mouse_names)}')
+        df = pd.read_csv(main_folder+mouse+"/"+mouse+"_AUC_Selectivity.csv")
+        mice_data.append(df)
+
+    df_combined = pd.concat(mice_data).reset_index(drop=True) 
+    df_combined.to_csv(main_folder+'Overall/data_compiled.csv', index=False)

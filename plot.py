@@ -120,18 +120,18 @@ def plot_neuron_counts_with_percentages(df, offset=2, category='Whisker'):
 
 
 
-def plot_neuron_percentages(df, offset=2, category='Whisker'):
+def plot_neuron_percentages(df, offset=2, category='whisker'):
     """
     Plots a grouped bar chart of the percentage of selective and non-selective neurons by brain region.
 
     Parameters:
     - df: DataFrame containing columns 'ccf_parent_acronym' (brain region) and 'selective' (boolean for neuron selectivity).
     - offset: Minimum vertical distance for percentage annotations (default=2).
-    - category: Either 'Whisker', 'Auditory', 'Aud/Wh', or 'all'.
+    - category: Either 'whisker', 'auditory', 'wh_vs_aud', or 'spontaneous_licks'.
     """
 
     if category != 'all':
-        df = df[df['category'] == category]
+        df = df[df['event'] == category]
 
     # Count selective and non-selective neurons and calculate percentages
     count_df = df.groupby(['ccf_parent_acronym', 'selective']).size().reset_index(name='Count')

@@ -132,7 +132,8 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2):
 
         ### save separate parquet files for each mouse :
         combined_df.to_parquet(f'{save_path}/{mouse_name}/{mouse_name}_AUC_Selectivity2.parquet', index=False)
-        
+        combined_df.to_csv(f'{save_path}/{mouse_name}/{mouse_name}_AUC_Selectivity.csv', index=False)
+
         print(f"Process finished for Mouse {i+1}/{len(mouse_names)}!")
         mice_data.append(combined_df)
     
@@ -140,7 +141,7 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2):
     # Combine all mouse DataFrames into a single DataFrame
     df_combined = pd.concat(mice_data).reset_index(drop=True)
     os.makedirs(f'{save_path}/Overall', exist_ok=True)
-    df_combined.to_parquet(f'{save_path}/Overall/Mice_AUC_Selectivity2.parquet', index=False)
+    df_combined.to_csv(f'{save_path}/Overall/Mice_AUC_Selectivity.csv', index=False)
     
 
     return df_combined

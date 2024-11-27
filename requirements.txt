@@ -1,5 +1,8 @@
 ### pip freeze 
 
+dask
+
+
 aiobotocore==2.15.0
 aiohappyeyeballs==2.4.0
 aiohttp==3.10.5

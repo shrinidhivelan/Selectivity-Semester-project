@@ -1,26 +1,8 @@
 from generate import *
 from plot import *
+import dask.dataframe as dd
+from helpers import *
 
-
-def put_together(main_folder = ''):
-    mouse_names = ['AB124_20240815_111810','AB125_20240817_123403']
-    
-    """['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
-               'AB123_20240806_110231', 'AB122_20240804_134554', 'AB119_20240731_102619', 'AB117_20240723_125437', 'AB116_20240724_102941']"""
-
-    main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/'
-
-    #AB116_20240724_102941_AUC_Selectivity2.parquet
-
-    mice_data = []
-
-    for i, mouse in enumerate(mouse_names):
-        print(f'{i+1}/{len(mouse_names)}')
-        df = pd.read_parquet(main_folder+mouse+"/"+mouse+"_AUC_Selectivity2.parquet")
-        mice_data.append(df)
-
-    df_combined = pd.concat(mice_data).reset_index(drop=True) 
-    df_combined.to_csv(main_folder+'Overall/data_compiled.csv', index=False)
 
 
 
@@ -35,12 +17,15 @@ def main():
     print("Starting the analysis...")
     
     #### (1) Generate 1 mouse name and create the selectivity parquet file: ####
-    mouse_names = generate_mice_data(folder_path, save_path)
+    #mouse_names = generate_mice_data(folder_path, save_path)
 
     ### Un comment the following if you do not want to regenerate the whole data : 
-    #mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757']
+    mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757']
     #mouse_names = ['AB126_20240822_114405', 'AB127_20240821_103757', 'AB128_20240829_112813', 'AB129_20240828_112850', 'AB130_20240902_123634']
+    mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
+               'AB123_20240806_110231', 'AB122_20240804_134554', 'AB119_20240731_102619', 'AB117_20240723_125437', 'AB116_20240724_102941']
 
+    """ 
     #### (1a) Generate Raster plots :
     for mouse in mouse_names:
         main_data_per_mouse = os.path.join(folder_path, mouse+".nwb")
@@ -55,8 +40,10 @@ def main():
     for mouse_name in mouse_names:
         process_and_save_roc(mouse_name, save_path)
     
+    """
+    #convert_to_csv(mouse_names)
 
-    put_together(save_path)
+    #put_together(save_path, mouse_names)
 
 
 
