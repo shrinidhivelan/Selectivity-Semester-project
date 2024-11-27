@@ -162,6 +162,10 @@ def create_array_spikes(table, trials, type='whisker', start=0.5, stop=1):
             spikes_during_trial = spike_times[(spike_times >= trial_start) & (spike_times <= trial_stop)]
             if spikes_during_trial.size != 0:
                 relative_time.append(spikes_during_trial - trial['start_time'])
+            else:
+                # If no spikes, append an empty list (or NaN if desired) for this trial
+                relative_time.append([])  # Or relative_time.append([float('nan')])
+
 
         # Add relative spike times and cluster ID to the results if spikes were found
         if relative_time:  # This checks if relative_time has any elements

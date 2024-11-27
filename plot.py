@@ -7,6 +7,8 @@ import ast
 from generate import *
 from AUC import *
 from helpers import *
+from tqdm import tqdm
+
 
 ################################ **** Functions used for plotting **** ################################
 
@@ -289,25 +291,25 @@ def plot_subplots(pre, post, cluster_id, type="whisker", plots_per_row=4, total_
         plt.tight_layout()
         plt.show()
 
-def save_roc_plots(arr1, arr2, cluster_id, type="whisker", indices=[-9999], mouse_name = '', context = 'passive'):
+def save_roc_plots_context(arr1, arr2, cluster_id, type="whisker", indices=[-9999], mouse_name = '', context = 'passive', auc_path = ''):
     # Ensure indices list covers the desired range
     total_plots = len(arr1)
     if indices[0] == -9999:
         indices = range(total_plots)
     
     # Create folder if it doesn't exist
-    if type != 'spontaneous_licks':
+    if type == 'spontaneous_licks':
         if mouse_name == '':
-            folder_path = f'plots/other/AUC_plots/{type}/{context}/'
+            folder_path = f'{auc_path}/Plots/AUC_plots/other/{type}/'
         else:
-            folder_path = f'plots/{mouse_name}/AUC_plots/{type}/{context}'
+            folder_path = f'{auc_path}/Plots/AUC_plots/{mouse_name}/{type}/'
     else:
         if mouse_name == '':
-            folder_path = f'plots/other/AUC_plots/{type}'
+            folder_path = f'{auc_path}/Plots/AUC_plots/other/{type}/{context}/'
         else:
-            folder_path = f'plots/{mouse_name}/AUC_plots/{type}'
+            folder_path = f'{auc_path}/Plots/AUC_plots/{mouse_name}/{type}/{context}'
 
-        os.makedirs(folder_path, exist_ok=True)
+    os.makedirs(folder_path, exist_ok=True)
     
     # Generate and save each ROC plot
     for i in tqdm(indices):
@@ -315,11 +317,57 @@ def save_roc_plots(arr1, arr2, cluster_id, type="whisker", indices=[-9999], mous
         plot_roc_curve(ax, arr1, arr2, i, cluster_id, type)
         
         # Define file path and save the figure
-        file_path = f"{folder_path}/roc_neuron_{i}_cluster_{cluster_id[i]}.png"
+        file_path = f"{folder_path}/roc_neuron_{i}_cluster_{cluster_id[i]}_{mouse_name}.png"
         plt.savefig(file_path, bbox_inches='tight')
         plt.close(fig)  # Close the figure to free memory
 
-def plot_single_roc(pre, post, cluster_id, index, type="whisker", context = 'passive'):
+def process_and_save_roc(mouse_name, main_path, types = ['whisker', 'auditory', 'wh_vs_aud', 'spontaneous_licks'], contexts = ['active', 'passive']):
+    """
+    Process types and contexts, generating and saving ROC plots.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the data.
+        types (list): List of types to process (e.g., 'whisker', 'auditory').
+        contexts (list): List of contexts to process (e.g., 'active', 'passive').
+        cluster_id (pd.Series): Series of cluster IDs.
+        mouse_name (str): Identifier for the mouse.
+        main_path (str): Base path to save the ROC plots.
+
+
+    """
+
+    df = pd.read_parquet(main_path+"/"+mouse_name+"/"+mouse_name+'_Selectivity_Dataframe2.parquet')
+    cluster_id = df['cluster_id']
+
+    
+    for type in tqdm(types, desc="Processing types", dynamic_ncols=True):
+        # Determine the appropriate contexts for the current type
+        if type == 'spontaneous_licks':
+            context_list = ['']  # Override contexts for this type
+        else:
+            context_list = contexts
+
+        # Ensure the inner progress bar is visible
+        for context in tqdm(context_list, desc=f"Processing {type} contexts", dynamic_ncols=True):
+            if type == 'wh_vs_aud':
+                save_roc_plots_context(
+                    df[f"whisker_{context}_post_spikes"], df[f"auditory_{context}_post_spikes"], cluster_id,
+                    type, mouse_name=mouse_name, context=context, auc_path=main_path
+                )
+            elif type == 'spontaneous_licks':
+                save_roc_plots_context(
+                    df[f"{type}_post_spikes"], df[f"{type}_post_spikes"], cluster_id,
+                    type, mouse_name=mouse_name, context=context, auc_path=main_path
+                )
+            else:
+                save_roc_plots_context(
+                    df[f"{type}_{context}_pre_spikes"], df[f"{type}_{context}_post_spikes"], cluster_id,
+                    type, mouse_name=mouse_name, context=context, auc_path=main_path
+                )
+
+
+
+def plot_single_roc(pre, post, cluster_id, index, type="whisker", context='passive'):
     # Convert strings to lists if needed
     if isinstance(pre, str):
         pre = ast.literal_eval(pre)
@@ -331,13 +379,13 @@ def plot_single_roc(pre, post, cluster_id, index, type="whisker", context = 'pas
     post = np.array(post)
 
     # Combine data for the specific index
-    whisker_spike_counts = np.concatenate([pre, post])
+    spike_counts = np.concatenate([pre, post])
     len_per_element = len(pre)
     len_per_element2 = len(post)
     labels = np.concatenate([np.ones(len_per_element), np.zeros(len_per_element2)])
     
     # Compute the ROC curve
-    fpr, tpr, _ = roc_curve(labels, whisker_spike_counts)
+    fpr, tpr, _ = roc_curve(labels, spike_counts)
     roc_auc = auc(fpr, tpr)
 
     # Plot the ROC curve
@@ -405,8 +453,6 @@ def plot_analysis(whisker_pre, whisker_post, i, cluster_id, bootstrap_aucs_whisk
     plt.legend(loc='upper right')
     plt.grid(True)
     plt.show()
-
-
 
 
 
@@ -544,6 +590,12 @@ def Final_spikes_context(units, trials, start=0.5, stop=1):
         auditory_array, _ = create_array_spikes(units, auditory_trials, type='auditory', start=start, stop=stop)
         nostim_array, _ = create_array_spikes(units, nostim_trials, type='no_stim', start=start, stop=stop)
         
+        """ 
+        print(f"Shape whisker_array for {context} : {len(whisker_array)} ")
+        print(f"Shape auditory_array for {context} : {len(auditory_array)} ")
+        print(f"Shape nostim_array for {context} : {len(nostim_array)} ")
+        """
+        
         spike_data[context] = {
             "whisker": whisker_array,
             "auditory": auditory_array,
@@ -553,35 +605,49 @@ def Final_spikes_context(units, trials, start=0.5, stop=1):
     return spike_data, clusters
 
 
-def plot_raster_final_context(spike_data, cluster, mouse_name=''):
+def plot_raster_final_context(spike_data, cluster, mouse_name='', raster_path=''):
     """
     Plots raster plots for passive and active contexts side by side for a given cluster.
     Includes a legend to indicate the color mapping for trial types.
     """
-    filename = f"Raster_Neuron_{cluster}.png"
-    folder = f'plots/{mouse_name}/raster_plots'
-    os.makedirs(folder, exist_ok=True)
+    filename = f"Raster_Neuron_{cluster}_{mouse_name}.png"
+    #folder = f'plots/{mouse_name}/raster_plots'
+    os.makedirs(raster_path, exist_ok=True)
 
     # Create a figure with two subplots (one for passive, one for active)
     fig, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
     contexts = ['passive', 'active']
 
     for ax, context in zip(axes, contexts):
-        nostim_test = spike_data[context]["nostim"]
-        auditory_test = spike_data[context]["auditory"]
-        whisker_test = spike_data[context]["whisker"]
+        if context == 'passive':
+            # Only plot whisker and auditory trials in passive context (no nostim)
+            whisker_test = spike_data[context]["whisker"]
+            auditory_test = spike_data[context]["auditory"]
+            
+            # Plot whisker test spikes
+            for idx, spikes in enumerate(whisker_test):
+                ax.scatter(spikes, np.full_like(spikes, idx), color='forestgreen', marker='|', s=10, label='Whisker' if idx == 0 else "")
+                
+            # Plot auditory test spikes
+            for idx, spikes in enumerate(auditory_test):
+                ax.scatter(spikes, np.full_like(spikes, idx + len(whisker_test)), color='mediumblue', marker='|', s=10, label='Auditory' if idx == 0 else "")
+                
+        else:  # active context, plot all trials including nostim
+            nostim_test = spike_data[context]["nostim"]
+            auditory_test = spike_data[context]["auditory"]
+            whisker_test = spike_data[context]["whisker"]
 
-        # Plot no stimulation test spikes
-        for idx, spikes in enumerate(nostim_test):
-            ax.scatter(spikes, np.full_like(spikes, idx), color='k', marker='|', s=15, label='No Stim' if idx == 0 else "")
+            # Plot no stimulation test spikes
+            for idx, spikes in enumerate(nostim_test):
+                ax.scatter(spikes, np.full_like(spikes, idx), color='k', marker='|', s=10, label='No Stim' if idx == 0 else "")
 
-        # Plot auditory test spikes
-        for idx, spikes in enumerate(auditory_test):
-            ax.scatter(spikes, np.full_like(spikes, idx + len(nostim_test)), color='mediumblue', marker='|', s=15, label='Auditory' if idx == 0 else "")
+            # Plot auditory test spikes
+            for idx, spikes in enumerate(auditory_test):
+                ax.scatter(spikes, np.full_like(spikes, idx + len(nostim_test)), color='mediumblue', marker='|', s=10, label='Auditory' if idx == 0 else "")
 
-        # Plot whisker test spikes
-        for idx, spikes in enumerate(whisker_test):
-            ax.scatter(spikes, np.full_like(spikes, idx + len(nostim_test) + len(auditory_test)), color='forestgreen', marker='|', s=15, label='Whisker' if idx == 0 else "")
+            # Plot whisker test spikes
+            for idx, spikes in enumerate(whisker_test):
+                ax.scatter(spikes, np.full_like(spikes, idx + len(nostim_test) + len(auditory_test)), color='forestgreen', marker='|', s=10, label='Whisker' if idx == 0 else "")
 
         # Add vertical lines and labels
         ax.axvline(x=-0.2, color='grey', linestyle='--', linewidth=2, label='-0.2 s' if idx == 0 else "")
@@ -593,16 +659,22 @@ def plot_raster_final_context(spike_data, cluster, mouse_name=''):
         ax.set_ylabel('Trial Index')
         ax.legend(loc='upper right')  # Add legend to each subplot
 
-    plt.suptitle(f'Raster Plot of Spike Times for Cluster {cluster}')
-    plt.savefig(os.path.join(folder, filename), bbox_inches='tight')
+    plt.suptitle(f'Raster Plot of Spike Times for Cluster {cluster} for mouse {mouse_name}')
+    plt.savefig(os.path.join(raster_path, filename), bbox_inches='tight')
     plt.close()
 
 
 
-def Raster_total_context(units, trials, start=0.5, stop=1, mouse_name=''):
+
+def Raster_total_context(nwbfile, start=0.5, stop=1, mouse_name='', main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens'):
     """
     Generates raster plots for all clusters, split by passive and active contexts.
     """
+    units, trials = preprocessing(nwbfile)
+    
+    raster_path = main_folder+"/Plots/Rasters/"+mouse_name
+    os.makedirs(raster_path, exist_ok=True)
+
     spike_data, clusters = Final_spikes_context(units, trials, start, stop)
     Nb_neurons = len(spike_data['passive']["whisker"])
     for i in range(Nb_neurons):
@@ -611,7 +683,7 @@ def Raster_total_context(units, trials, start=0.5, stop=1, mouse_name=''):
                 "passive": {
                     "whisker": spike_data["passive"]["whisker"][i],
                     "auditory": spike_data["passive"]["auditory"][i],
-                    "nostim": spike_data["passive"]["nostim"][i],
+                    "nostim": [],
                 },
                 "active": {
                     "whisker": spike_data["active"]["whisker"][i],
@@ -620,6 +692,7 @@ def Raster_total_context(units, trials, start=0.5, stop=1, mouse_name=''):
                 }
             },
             clusters[i],
-            mouse_name
+            mouse_name,
+            raster_path
         )
 

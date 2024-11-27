@@ -2,7 +2,6 @@ import pandas as pd
 import os
 from pynwb import NWBHDF5IO
 from pathlib import Path
-from plot import visualize_auc, save_overall_auc
 from plot import *
 from AUC import *
 from helpers import *
@@ -77,7 +76,7 @@ def generate_mice_data(folder_path, save_path):
     return mouse_names
 
 
-def AUC_generate(mouse_names = [], save_path = "", save_files = False, visualize = False, nb_neurons = 100, pre_vs_post_visualization = False, start = 0.2, stop = 0.2):
+def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2):
     """
     Generate AUC (Area Under Curve) data for multiple mice, including bootstrapping and saving results.
 
@@ -98,12 +97,6 @@ def AUC_generate(mouse_names = [], save_path = "", save_files = False, visualize
 
     for i, mouse_name in enumerate(mouse_names):
         df = pd.read_parquet(f'{save_path}/{mouse_name}/{mouse_name}_Selectivity_Dataframe2.parquet')
-    
-        # Check whether we want to save or visualize the files:
-        if (save_files): 
-            print("Starting to save files!")
-            save_overall_auc(df, mouse_name)
-        if (visualize): visualize_auc(df, nb_neurons)
 
         print(f"Starting process for Mouse {i+1}/{len(mouse_names)} {mouse_name}")
         
