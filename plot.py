@@ -333,7 +333,6 @@ def process_and_save_roc(mouse_name, main_path, types = ['whisker', 'auditory', 
         mouse_name (str): Identifier for the mouse.
         main_path (str): Base path to save the ROC plots.
 
-
     """
 
     df = pd.read_parquet(main_path+"/"+mouse_name+"/"+mouse_name+'_Selectivity_Dataframe2.parquet')
