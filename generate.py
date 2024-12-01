@@ -8,7 +8,7 @@ from helpers import *
 
 
 
-def generate_mice_data(folder_path, save_path):
+def generate_mice_data(folder_path, save_path, context = True):
     """
     Process NWB files in a folder to extract selectivity data for multiple mice.
 
@@ -31,9 +31,7 @@ def generate_mice_data(folder_path, save_path):
     if not any(Path_folder.glob("*.nwb")):
         raise FileNotFoundError(f"No NWB files found in the directory: {folder_path}")
 
-    for filepath in Path_folder.glob("*.nwb"):
-        print(filepath)
-        
+    for filepath in Path_folder.glob("*.nwb"):        
         if not filepath.name.startswith("._"):  # Skip hidden files 
 
             print(f"Processing file: {filepath.name}")
@@ -48,7 +46,7 @@ def generate_mice_data(folder_path, save_path):
 
             
             # Generate data using the spike_detect function from the nwbfile: 
-            data_total = spike_detect(nwbfile, 0.2, 0.2)
+            data_total = spike_detect(nwbfile, 0.2, 0.2, context)
 
             # Metadata columns
             data_total['pre_time'] = 0.2
@@ -76,7 +74,7 @@ def generate_mice_data(folder_path, save_path):
     return mouse_names
 
 
-def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2):
+def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2, has_context = True):
     """
     Generate AUC (Area Under Curve) data for multiple mice, including bootstrapping and saving results.
 
@@ -106,23 +104,25 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2):
             if type == 'spontaneous_licks':
                 # Compute AUC and transform values for spontaneous licks
                 df['spontaneous_licks_AUC'] = df.apply(lambda row: compute_AUC(row, type, context), axis=1)
-                df['Transformed spontaneous_licks_AUC'] = df.apply(lambda row: 2*row[f'spontaneous_licks_AUC']-1, axis=1)
+                df['spontaneous_licks_Transformed AUC'] = df.apply(lambda row: 2*row[f'spontaneous_licks_AUC']-1, axis=1)
 
             else:
                 # Compute AUC and transform values for other stimulus types across contexts
-                contexts = ['passive', 'active']
+                contexts = ["active"] if not has_context else ["passive", "active"]
                 
             for context in contexts:
                 df[f'{type}_{context}_AUC'] = df.apply(lambda row: compute_AUC(row, type, context), axis=1)
-                df[f'Transformed {type}_{context}_AUC'] = df.apply(lambda row: 2*row[f'{type}_{context}_AUC']-1, axis=1)
+                df[f'{type}_{context}_Transformed AUC'] = df.apply(lambda row: 2*row[f'{type}_{context}_AUC']-1, axis=1)
 
         # Bootstrapping process for statistical analysis
         print("Starting bootstrapping process...")
-        new_df = bootstrapping(df)
+        new_df = bootstrapping(df, has_context=has_context)
+
+        #new_df.to_csv(f"testing{i}.csv")
 
         # Create a combined DataFrame for visualization or saving
         print('Pivotting table...')
-        combined_df = create_combined_df_v6(new_df)
+        combined_df = pivot_table(new_df, has_context)
         
         # Add metadata to the combined DataFrame
         combined_df['mouse_id'] = mouse_name
@@ -141,7 +141,12 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2):
     # Combine all mouse DataFrames into a single DataFrame
     df_combined = pd.concat(mice_data).reset_index(drop=True)
     os.makedirs(f'{save_path}/Overall', exist_ok=True)
-    df_combined.to_csv(f'{save_path}/Overall/Mice_AUC_Selectivity.csv', index=False)
+
+    if has_context:
+        df_combined.to_csv(f'{save_path}/Overall/Mice_AUC_Selectivity.csv', index=False)
+    else : 
+        df_combined.to_csv(f'{save_path}/Overall/No_Context_Mice_AUC_Selectivity.csv', index=False)
+
     
 
     return df_combined

@@ -152,7 +152,7 @@ def plot_neuron_percentages(df, offset=2, category='whisker'):
     # Customize the plot
     plt.ylabel('Percentage of Neurons')
     plt.title(f'Percentage of Selective and Non-Selective Neurons by Brain Region for {category} Simulation')
-    plt.xticks(rotation=0)
+    plt.xticks(rotation=45)
     plt.tight_layout()
     plt.legend(['Non-Selective', 'Selective'])
     plt.show()

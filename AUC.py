@@ -162,7 +162,7 @@ def bootstrap_columns(old_df, p_values_pos, p_values_neg, bootstrap_aucs, type =
 
 
 
-def bootstrapping(old_df, nb_iterations = 1000):
+def bootstrapping(old_df, nb_iterations = 1000, has_context = True):
     df = old_df.copy()
 
     types = ['whisker', 'auditory', 'wh_vs_aud', 'spontaneous_licks']
@@ -185,7 +185,7 @@ def bootstrapping(old_df, nb_iterations = 1000):
             
             
         else:
-            contexts = ['passive', 'active']
+            contexts = ["active"] if not has_context else ["passive", "active"]
             for context in contexts:
                 #context = " "+context
 
@@ -233,7 +233,7 @@ def bootstrapping(old_df, nb_iterations = 1000):
     return df
 
 
-def create_combined_df_v6(df):
+def create_combined_df_v6(df, has_context=True):
     # Define the configuration for each event and its context
     events_config = {
         'whisker': {
@@ -247,7 +247,7 @@ def create_combined_df_v6(df):
                 'selective': 'selective whiskeractive',
                 'direction': 'direction whiskeractive'
             },
-            'contexts': ['active', 'passive'],
+            'contexts': ['active'] if not has_context else ['active', 'passive'],
             'event': 'whisker'
         },
         'auditory': {
@@ -261,13 +261,13 @@ def create_combined_df_v6(df):
                 'selective': 'selective auditoryactive',
                 'direction': 'direction auditoryactive'
             },
-            'contexts': ['active', 'passive'],
+            'contexts': ['active'] if not has_context else ['active', 'passive'],
             'event': 'auditory'
         },
         'wh_vs_aud': {
             'columns': {
-                'pre_spikes': 'whisker_passive_post_spikes',  # This comes from whisker post_spikes
-                'post_spikes': 'auditory_passive_post_spikes',  # This comes from auditory post_spikes
+                'pre_spikes': 'whisker_passive_post_spikes',
+                'post_spikes': 'auditory_passive_post_spikes',
                 'AUC': 'wh_vs_aud_active_AUC',
                 'Transformed AUC': 'Transformed wh_vs_aud_active_AUC',
                 'p-values positive': 'p-values positive wh_vs_audactive',
@@ -275,7 +275,7 @@ def create_combined_df_v6(df):
                 'selective': 'selective wh_vs_audactive',
                 'direction': 'direction wh_vs_audactive'
             },
-            'contexts': ['active', 'passive'],
+            'contexts': ['active'] if not has_context else ['active', 'passive'],
             'event': 'wh_vs_aud'
         },
         'spontaneous_licks': {
@@ -293,16 +293,113 @@ def create_combined_df_v6(df):
             'event': 'spontaneous_licks'
         }
     }
-    
+
     # Create a list to hold all the processed rows
     combined_rows = []
     
     # Iterate through each row in the original dataframe
     for idx, row in df.iterrows():
-        # For each event, iterate over its contexts and create new rows
         for event, config in events_config.items():
             for context in config['contexts']:
-                # Create a new row with the selected columns
+                # Create a new row with shared information
+                new_row = {
+                    'cluster_id': row['cluster_id'],
+                    'ccf_acronym': row['ccf_acronym'],
+                    'ccf_name': row['ccf_name'],
+                    'ccf_parent_id': row['ccf_parent_id'],
+                    'ccf_parent_acronym': row['ccf_parent_acronym'],
+                    'ccf_parent_name': row['ccf_parent_name'],
+                    'spike_times': row['spike_times'],
+                    'mouse_id': row['mouse_id'],
+                    'context': context if has_context else 'active',
+                    'event': config['event']
+                }
+
+                # Assign event-specific columns
+                for col, column_name in config['columns'].items():
+                    new_row[col] = row[column_name]
+
+                # Append the new row
+                combined_rows.append(new_row)
+    
+    # Convert to DataFrame
+    combined_df = pd.DataFrame(combined_rows)
+    
+    return combined_df
+
+
+def create_combined_df_v7(df, has_context=True):
+    # Define the configuration for each event and its context
+    events_config = {
+        'whisker': {
+            'columns': {
+                'pre_spikes': 'pre_spikes',
+                'post_spikes': 'post_spikes',
+                'AUC': 'AUC',
+                'Transformed AUC': 'Transformed AUC',
+                'p-values positive': 'p-values positive',
+                'p-values negative': 'p-values negative',
+                'selective': 'selective',
+                'direction': 'direction'
+            },
+            'contexts': ['active', 'passive'] if has_context else ['active'],
+            'event': 'whisker'
+        },
+        'auditory': {
+            'columns': {
+                'pre_spikes': 'pre_spikes',
+                'post_spikes': 'post_spikes',
+                'AUC': 'AUC',
+                'Transformed AUC': 'Transformed AUC',
+                'p-values positive': 'p-values positive',
+                'p-values negative': 'p-values negative',
+                'selective': 'selective',
+                'direction': 'direction'
+            },
+            'contexts': ['active', 'passive'] if has_context else ['active'],
+            'event': 'auditory'
+        },
+        'wh_vs_aud': {
+            'columns': {
+                'pre_spikes': 'pre_spikes',
+                'post_spikes': 'post_spikes',
+                'AUC': 'AUC',
+                'Transformed AUC': 'Transformed AUC',
+                'p-values positive': 'p-values positive',
+                'p-values negative': 'p-values negative',
+                'selective': 'selective',
+                'direction': 'direction'
+            },
+            'contexts': ['active', 'passive'] if has_context else ['active'],
+            'event': 'wh_vs_aud'
+        },
+        'spontaneous_licks': {
+            'columns': {
+                'pre_spikes': 'pre_spikes',
+                'post_spikes': 'post_spikes',
+                'AUC': 'AUC',
+                'Transformed AUC': 'Transformed AUC',
+                'p-values positive': 'p-values positive',
+                'p-values negative': 'p-values negative',
+                'selective': 'selective',
+                'direction': 'direction'
+            },
+            'contexts': ['active'],  # Only one context for spontaneous
+            'event': 'spontaneous_licks'
+        }
+    }
+
+    # Create a list to hold all the processed rows
+    combined_rows = []
+    
+    # Iterate through each row in the original dataframe
+    for idx, row in df.iterrows():
+        for event, config in events_config.items():
+            for context in config['contexts']:
+                # Build the suffix for active/passive column handling
+                context_suffix = f"{context}" if context in ['active', 'passive'] else 'active'
+
+                # Create a new row with shared information
                 new_row = {
                     'cluster_id': row['cluster_id'],
                     'ccf_acronym': row['ccf_acronym'],
@@ -315,16 +412,86 @@ def create_combined_df_v6(df):
                     'context': context,
                     'event': config['event']
                 }
-                
-                # Assign the appropriate columns based on the event/context
+
+                # Assign event-specific columns based on context
                 for col, column_name in config['columns'].items():
-                    new_row[col] = row[column_name]
-                
-                # Append the new row to the list
+                    full_column_name = f"{event}_{context_suffix}_{column_name}"  # Match context-specific column names
+                    new_row[col] = row[full_column_name]
+
+                # Append the new row
                 combined_rows.append(new_row)
     
-    # Convert the list of rows to a DataFrame
+    # Convert to DataFrame
     combined_df = pd.DataFrame(combined_rows)
     
     return combined_df
 
+
+
+import pandas as pd
+
+# Assuming your dataframe is named df
+def pivot_table(df, has_context = True):
+    # Define the lists of columns to pivot
+    events = ['whisker', 'auditory', 'wh_vs_aud', 'spontaneous_licks']
+    contexts = ['active', 'passive'] if has_context else ['active']    
+    # Create an empty list to store the reshaped rows
+    reshaped_rows = []
+    
+    for event in events:
+        for context in contexts:
+            # Determine the column prefix
+            pre_col = f'{event}_active_pre_spikes' if context == 'active' else f'{event}_passive_pre_spikes'
+            post_col = f'{event}_active_post_spikes' if context == 'active' else f'{event}_passive_post_spikes'
+            auc_col = f'{event}_active_AUC' if context == 'active' else f'{event}_passive_AUC'
+            transformed_auc_col = f'{event}_active_Transformed AUC' if context == 'active' else f'{event}_passive_Transformed AUC'
+            p_value_pos_col = f'p-values positive {event}active' if context == 'active' else f'p-values positive {event}passive'
+            p_value_neg_col = f'p-values negative {event}active' if context == 'active' else f'p-values negative {event}passive'
+            selective_col = f'selective {event}active' if context == 'active' else f'selective {event}passive'
+            direction_col = f'direction {event}active' if context == 'active' else f'direction {event}passive'
+            
+            # Special mapping for wh_vs_aud
+            if event == 'wh_vs_aud':
+                pre_col = f'whisker_active_post_spikes' if context == 'active' else f'auditory_active_post_spikes'
+                post_col = f'auditory_active_post_spikes' if context == 'active' else f'whisker_active_post_spikes'
+            
+            # Special mapping for spontaneous_licks (no change in pre/post logic)
+            if event == 'spontaneous_licks':
+                pre_col = f'spontaneous_licks_pre_spikes'
+                post_col = f'spontaneous_licks_post_spikes'
+                # Adjust p-values and selective columns for spontaneous_licks
+                p_value_pos_col = f'p-values positive spontaneous_licks'
+                p_value_neg_col = f'p-values negative spontaneous_licks'
+                selective_col = f'selective spontaneous_licks'
+                direction_col = f'direction spontaneous_licks'
+
+            # Extract the necessary information from each row and reshape
+            for _, row in df.iterrows():
+                reshaped_row = {
+                    'cluster_id': row['cluster_id'],
+                    'ccf_acronym': row['ccf_acronym'],
+                    'ccf_name': row['ccf_name'],
+                    'ccf_parent_id': row['ccf_parent_id'],
+                    'ccf_parent_acronym': row['ccf_parent_acronym'],
+                    'ccf_parent_name': row['ccf_parent_name'],
+                    'spike_times': row['spike_times'],
+                    'mouse_id': row['mouse_id'],
+                    'context': context,
+                    'event': event,
+                    'pre_spikes': row[pre_col],
+                    'post_spikes': row[post_col],
+                    'AUC': row[auc_col],
+                    'Transformed AUC': row[transformed_auc_col],
+                    'p-values positive': row[p_value_pos_col],
+                    'p-values negative': row[p_value_neg_col],
+                    'selective': row[selective_col],
+                    'direction': row[direction_col],
+                    'pre_time': row['pre_time'],
+                    'post_time': row['post_time']
+                }
+                reshaped_rows.append(reshaped_row)
+    
+    # Convert the list of reshaped rows into a new DataFrame
+    reshaped_df = pd.DataFrame(reshaped_rows)
+    
+    return reshaped_df

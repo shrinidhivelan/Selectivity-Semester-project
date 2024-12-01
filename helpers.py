@@ -29,7 +29,7 @@ def preprocessing(nwbfile):
     return filtered_units, trials
 
 
-def extract_event_times(nwbfile, type = 'whisker', context = 'passive'):
+def extract_event_times(nwbfile, type = 'whisker', context = 'passive', has_context = True):
     """
     Extract event times from an NWB file based on stimulus type and context.
 
@@ -48,6 +48,9 @@ def extract_event_times(nwbfile, type = 'whisker', context = 'passive'):
         # For spontaneous licks, get event times using a helper function
         _, event_time = filtered_lick_times(nwbfile, 1)
     else:
+        if not has_context:
+            return trials[(trials[type + '_stim'] == 1)]['start_time'].values
+        
         # Extract event times for specified type, context, and lick_flag
         if context == 'active':
             event_time =  trials[
@@ -61,10 +64,11 @@ def extract_event_times(nwbfile, type = 'whisker', context = 'passive'):
                 (trials['context'] == context)  # Context must match
             ]['start_time'].values
 
+
     return event_time
 
 
-def spike_detect(nwbfile, start=0.2, stop=0.2):
+def spike_detect(nwbfile, start=0.2, stop=0.2, has_context = True):
     """
     Detect spikes within pre- and post-stimulus windows for various event types and contexts.
 
@@ -100,7 +104,7 @@ def spike_detect(nwbfile, start=0.2, stop=0.2):
         
         # Initialize columns for other event types and contexts
         else:
-            contexts = ["passive", "active"]
+            contexts = ["active"] if not has_context else ["passive", "active"]
             for context in contexts:
                 if type + "_" + context +  '_pre_spikes' not in table.columns:
                     table[type + "_" + context + '_pre_spikes'] = [[] for _ in range(len(table))]
@@ -108,7 +112,7 @@ def spike_detect(nwbfile, start=0.2, stop=0.2):
                     table[type + "_" + context + '_post_spikes'] = [[] for _ in range(len(table))]
 
         for context in contexts:        
-            event_times = extract_event_times(nwbfile, type, context)
+            event_times = extract_event_times(nwbfile, type, context, has_context)
 
             for unit_id, row in table.iterrows():
                 spike_times = row['spike_times']
@@ -288,10 +292,15 @@ def convert_to_csv(mouse_names):
         df.to_csv(main_folder+mouse_names[i]+"/"+mouse_names[i]+"_AUC_Selectivity.csv", index=False)
 
 
-def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757']):
+def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757'],
+                 has_context = True):
     #mouse_names = ['AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
     #           'AB123_20240806_110231', 'AB122_20240804_134554', 'AB119_20240731_102619', 'AB117_20240723_125437', 'AB116_20240724_102941']
 
+    if has_context:
+        ctxt = "_no_context"
+    else:
+        ctxt = ""
     main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/'
 
     #AB116_20240724_102941_AUC_Selectivity2.parquet
@@ -303,5 +312,68 @@ def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125
         df = pd.read_csv(main_folder+mouse+"/"+mouse+"_AUC_Selectivity.csv")
         mice_data.append(df)
 
-    df_combined = pd.concat(mice_data).reset_index(drop=True) 
-    df_combined.to_csv(main_folder+'Overall/data_compiled.csv', index=False)
+    df_total = pd.concat(mice_data).reset_index(drop=True) 
+
+    df_combined = process_area_acronyms(df_total)
+
+    df_combined.to_csv(main_folder+'Overall/complete_data'+ctxt+'.csv', index=False)
+
+def combine_files(main_folder):
+    
+    df_no_context = pd.read_csv(main_folder+'Overall/complete_data_no_context.csv')
+    df_context = pd.read_csv(main_folder+'Overall/complete_data.csv')
+    df_no_context['has context'] = False
+    df_context['has context'] = True
+    df_total = pd.concat([df_no_context, df_context]).reset_index(drop=True) 
+    df_total.to_csv(main_folder+'Overall/overall_combined.csv', index=False)
+ 
+
+
+
+def get_cortical_areas():
+    """
+    Retrieve a list of cortical area acronyms.
+    :return: List of cortical area acronyms
+    """
+    return [
+        'FRP', 'MOp', 'MOs', 'SSp-bfd', 'SSp-m', 'SSp-ul', 'SSp-ll', 'SSp-un', 'SSp-n', 'SSp-tr',
+        'SSs', 'AUDp', 'AUDd', 'AUDv', 'ACA', 'ACAv', 'ACAd', 'VISa', 'VISp', 'VISam', 'VISl',
+        'VISpm', 'VISrl', 'VISal', 'PL', 'ILA', 'ORB', 'RSP', 'RSPv', 'RSPd','RSPagl', 'TT', 'SCm',
+        'SCsg', 'SCzo', 'SCiw', 'SCop', 'SCs', 'ORBm', 'ORBl', 'ORBvl', 'AId',
+        'AIv', 'AIp', 'FRP', 'VISC'
+    ]
+
+def process_area_acronyms(peth_table): #TODO: use this function to combine future areas e.g. ACAv,ACAd -> ACA, etc.
+    """
+    Process and re-assign area acronyms.
+    In particular, groups barrel columns together.
+    :param peth_table: PETH table with all mice data
+    :param params: Plotting parameters
+    :return: Updated PETH table with processed area acronyms
+    """
+    # Assign to SSp-bfd if ccf parent acronym contains SSp-bfd
+    peth_table['ccf_parent_acronym'] = peth_table['ccf_parent_acronym'].astype(str)
+    peth_table['ccf_parent_acronym'] = peth_table['ccf_parent_acronym'].apply(
+        lambda x: 'SSp-bfd' if 'SSp-bfd' in x else x
+    )
+
+    # Decide which area acronym to use
+    # Use ccf_parent_acronym if layer or part is in the name
+    peth_table['area_acronym'] = peth_table.apply(
+        lambda row: row['ccf_parent_acronym']
+        if ('layer' in row['ccf_name'].lower() or 'part' in row['ccf_name'].lower())
+        else row['ccf_acronym'],
+        axis=1
+    )
+
+    # For cortical areas, use the ccf_parent_acronym
+    ctx_areas = get_cortical_areas()
+    peth_table['area_acronym'] = [row['ccf_parent_acronym'] if row['ccf_parent_acronym'] in ctx_areas
+                               else row['ccf_acronym'] for idx, row in peth_table.iterrows()]
+
+
+    # Are there any that do not have names?
+    print('List of areas without names:')
+    print(peth_table[peth_table['ccf_name'].isnull()]['ccf_acronym'].unique())
+
+    return peth_table
