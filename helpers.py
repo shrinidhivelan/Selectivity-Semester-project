@@ -320,12 +320,12 @@ def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125
 
 def combine_files(main_folder):
     
-    df_no_context = pd.read_csv(main_folder+'Overall/complete_data_no_context.csv')
-    df_context = pd.read_csv(main_folder+'Overall/complete_data.csv')
+    df_no_context = pd.read_csv(main_folder+'/Overall/complete_data_no_context.csv')
+    df_context = pd.read_csv(main_folder+'/Overall/complete_data.csv')
     df_no_context['has context'] = False
     df_context['has context'] = True
     df_total = pd.concat([df_no_context, df_context]).reset_index(drop=True) 
-    df_total.to_csv(main_folder+'Overall/overall_combined.csv', index=False)
+    df_total.to_csv(main_folder+'/Overall/overall_combined.csv', index=False)
  
 
 

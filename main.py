@@ -13,7 +13,7 @@ def main():
     folder_path_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/context'
     #folder_path_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/context_fill_in'
     folder_path_no_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/nocontext'
-    have_context = [True]
+    have_context = []
     save_path = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data'
 
     print("Starting the analysis...")
@@ -23,9 +23,11 @@ def main():
     for has_context in have_context:
         if has_context == True:
             print('Starting the process for data with context information...')
-            mouse_names = generate_mice_data(folder_path_context, save_path, context=True)
+            #mouse_names = generate_mice_data(folder_path_context, save_path, context=True)
+            #AUC_generate(mouse_names, save_path, has_context=True)
+            #put_together(save_path, mouse_names, True)
+            mouse_names = ['AB129_20240828_112850', 'AB130_20240902_123634']
             AUC_generate(mouse_names, save_path, has_context=True)
-            put_together(save_path, mouse_names, True)
 
 
         else: 
@@ -34,7 +36,19 @@ def main():
             AUC_generate(mouse_names, save_path, has_context=False)
             put_together(save_path, mouse_names, False)
     
+
+    mouse_names_context = ['AB120_20240811_143102','AB121_20240813_125401','AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
+               'AB123_20240806_110231', 'AB122_20240804_134554', 'AB119_20240731_102619', 'AB117_20240723_125437', 'AB116_20240724_102941']
+    mouse_names_no_context = ['AB077_20230531_143839','AB080_20230622_152205', 'AB082_20230630_101353',
+                   'AB085_20231005_152636', 'AB086_20231015_141742', 'AB087_20231017_141901',
+                   'AB092_20231205_140109', 'AB093_20231207_111207', 'AB095_20231212_141728',
+                   'AB102_20240309_114107', 'AB104_20240313_145433', 'AB107_20240318_121423']
+    
+    put_together(save_path, mouse_names_context, True)
+    put_together(save_path, mouse_names_no_context, False)
+
     combine_files(save_path)
+
 
 
     """ 
