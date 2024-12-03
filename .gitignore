@@ -9,6 +9,8 @@ terms_definition_throughout.txt
 # Nwb file
 *.nwb
 
+*.csv
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

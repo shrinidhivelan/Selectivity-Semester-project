@@ -236,8 +236,6 @@ def visualize_lick_times(array, filtered, start = 0, end = 0):
 
 
 def plot_roc_curve(ax, pre, post, index, cluster_ID, type="whisker", context = "passive"):
-
-
     # Calculate ROC
     fpr, tpr, thresholds, labels, roc_auc, _ = calculate_ROC(pre, post, index, cluster_ID, type)
     transformed_auc = 2 * roc_auc - 1
@@ -283,7 +281,7 @@ def save_roc_plots_context(arr1, arr2, cluster_id, type="whisker", indices=[-999
         plt.savefig(file_path, bbox_inches='tight')
         plt.close(fig)  # Close the figure to free memory
 
-def process_and_save_roc(mouse_name, main_path, types = ['whisker', 'auditory', 'wh_vs_aud', 'spontaneous_licks'], contexts = ['active', 'passive']):
+def process_and_save_roc(mouse_name, main_path, has_context = True, types = ['whisker', 'auditory', 'wh_vs_aud', 'spontaneous_licks'], contexts = ['active', 'passive_pre', 'passive_post']):
     """
     Process types and contexts, generating and saving ROC plots.
     
@@ -297,7 +295,10 @@ def process_and_save_roc(mouse_name, main_path, types = ['whisker', 'auditory', 
 
     """
 
-    df = pd.read_parquet(main_path+"/"+mouse_name+"/"+mouse_name+'_Selectivity_Dataframe2.parquet')
+    if not has_context:
+        contexts = ['active']
+
+    df = pd.read_parquet(main_path+"/"+mouse_name+"/"+mouse_name+'_Selectivity_Dataframe.parquet')
     cluster_id = df['cluster_id']
 
     

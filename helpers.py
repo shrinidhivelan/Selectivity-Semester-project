@@ -1,6 +1,21 @@
+import pandas as pd
 
 ########### Find functions to generate the data ###########
-import pandas as pd
+
+
+
+def add_context_new_column(df):
+    # Get the middle index of the dataframe
+    mid_index = len(df) // 2
+    
+    # Create the new column 'context_new'
+    df['context_new'] = df.apply(lambda row: 
+                                'active' if row['context'] == 'active' else
+                                ('passive_pre' if row['context'] == 'passive' and row.name < mid_index else
+                                 'passive_post'), axis=1)
+    
+    return df
+
 
 def preprocessing(nwbfile):
     """
@@ -19,6 +34,8 @@ def preprocessing(nwbfile):
     units = nwbfile.units.to_dataframe()
     trials = nwbfile.trials.to_dataframe()
 
+    trials = add_context_new_column(trials)
+
     # Preprocessing 
     filtered_units = units[(units['bc_label'] == 'good') & (units['ccf_acronym'].str.contains('[A-Z]'))]
 
@@ -27,6 +44,9 @@ def preprocessing(nwbfile):
     filtered_units = filtered_units[cons_columns]
 
     return filtered_units, trials
+
+
+
 
 
 def extract_event_times(nwbfile, type = 'whisker', context = 'passive', has_context = True):
@@ -42,7 +62,8 @@ def extract_event_times(nwbfile, type = 'whisker', context = 'passive', has_cont
         np.ndarray: An array of event times matching the specified type and context.
     """
     # Convert trials table to a DataFrame
-    trials = nwbfile.trials.to_dataframe()
+    #trials = nwbfile.trials.to_dataframe()
+    _, trials = preprocessing(nwbfile)
 
     if type == 'spontaneous_licks':
         # For spontaneous licks, get event times using a helper function
@@ -56,25 +77,24 @@ def extract_event_times(nwbfile, type = 'whisker', context = 'passive', has_cont
             event_time =  trials[
                 (trials[type + '_stim'] == 1) &  # Stimulus type must match
                 (trials['lick_flag'] == 1) &    # Lick flag must be true
-                (trials['context'] == context)  # Context must match
+                (trials['context_new'] == context)  # Context must match
             ]['start_time'].values
         else: 
             event_time = trials[
                 (trials[type + '_stim'] == 1) &  # Stimulus type must match
-                (trials['context'] == context)  # Context must match
+                (trials['context_new'] == context)  # Context must match
             ]['start_time'].values
 
 
     return event_time
 
 
-def spike_detect(nwbfile, start=0.2, stop=0.2, has_context = True):
+def spike_detect(nwbfile, start=0.2, stop=0.2, has_context=True):
     """
     Detect spikes within pre- and post-stimulus windows for various event types and contexts.
 
     Args:
         nwbfile: NWB file object.
-        unit_table (pd.DataFrame): DataFrame of unit information containing spike times.
         start (float): Pre-stimulus window duration (seconds).
         stop (float): Post-stimulus window duration (seconds).
 
@@ -104,9 +124,9 @@ def spike_detect(nwbfile, start=0.2, stop=0.2, has_context = True):
         
         # Initialize columns for other event types and contexts
         else:
-            contexts = ["active"] if not has_context else ["passive", "active"]
+            contexts = ["active", "passive_pre", "passive_post"] if has_context else ["active"]
             for context in contexts:
-                if type + "_" + context +  '_pre_spikes' not in table.columns:
+                if type + "_" + context + '_pre_spikes' not in table.columns:
                     table[type + "_" + context + '_pre_spikes'] = [[] for _ in range(len(table))]
                 if type + "_" + context + '_post_spikes' not in table.columns:
                     table[type + "_" + context + '_post_spikes'] = [[] for _ in range(len(table))]
@@ -133,6 +153,7 @@ def spike_detect(nwbfile, start=0.2, stop=0.2, has_context = True):
                     table.at[unit_id, type + "_" + context + '_pre_spikes'] = pre_spikes
                     table.at[unit_id, type + "_" + context + '_post_spikes'] = post_spikes
     return table
+
  
 
 ########### function to generate spikes for different types ########### 
@@ -301,7 +322,7 @@ def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125
         ctxt = "_no_context"
     else:
         ctxt = ""
-    main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/'
+    #main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/'
 
     #AB116_20240724_102941_AUC_Selectivity2.parquet
 
@@ -309,14 +330,14 @@ def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125
 
     for i, mouse in enumerate(mouse_names):
         print(f'{i+1}/{len(mouse_names)}')
-        df = pd.read_csv(main_folder+mouse+"/"+mouse+"_AUC_Selectivity.csv")
+        df = pd.read_csv(main_folder+"/"+mouse+"/"+mouse+"_AUC_Selectivity_pre_post.csv")
         mice_data.append(df)
 
     df_total = pd.concat(mice_data).reset_index(drop=True) 
 
     df_combined = process_area_acronyms(df_total)
 
-    df_combined.to_csv(main_folder+'Overall/complete_data'+ctxt+'.csv', index=False)
+    df_combined.to_csv(main_folder+'/Overall/complete_data'+ctxt+'.csv', index=False)
 
 def combine_files(main_folder):
     

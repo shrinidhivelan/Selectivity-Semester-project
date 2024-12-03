@@ -60,7 +60,7 @@ def generate_mice_data(folder_path, save_path, context = True):
             # Create and save individual mouse data to a parquet file
             folder = f'{save_path}/{mouse_name}'
             os.makedirs(folder, exist_ok=True)
-            data_total.to_parquet(f'{folder}/{mouse_name}_Selectivity_Dataframe2.parquet', index=False)
+            data_total.to_parquet(f'{folder}/{mouse_name}_Selectivity_Dataframe.parquet', index=False)
 
             # Append to main mice_data 
             mice_data.append(data_total)
@@ -70,7 +70,7 @@ def generate_mice_data(folder_path, save_path, context = True):
 
     # Save the combined data to an overall folder
     os.makedirs(f'{save_path}/Overall', exist_ok=True)
-    df_combined.to_parquet(f'{save_path}/Overall/Mice_Selectivity_Dataframe2.parquet', index=False)
+    df_combined.to_parquet(f'{save_path}/Overall/Mice_Selectivity_Dataframe.parquet', index=False)
     return mouse_names
 
 
@@ -94,7 +94,7 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2, has_
     df_combined = []  # Placeholder for the final combined DataFrame
 
     for i, mouse_name in enumerate(mouse_names):
-        df = pd.read_parquet(f'{save_path}/{mouse_name}/{mouse_name}_Selectivity_Dataframe2.parquet')
+        df = pd.read_parquet(f'{save_path}/{mouse_name}/{mouse_name}_Selectivity_Dataframe.parquet')
 
         print(f"Starting process for Mouse {i+1}/{len(mouse_names)} {mouse_name}")
         
@@ -108,17 +108,17 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2, has_
 
             else:
                 # Compute AUC and transform values for other stimulus types across contexts
-                contexts = ["active"] if not has_context else ["passive", "active"]
-                
-            for context in contexts:
-                df[f'{type}_{context}_AUC'] = df.apply(lambda row: compute_AUC(row, type, context), axis=1)
-                df[f'{type}_{context}_Transformed AUC'] = df.apply(lambda row: 2*row[f'{type}_{context}_AUC']-1, axis=1)
+                contexts = ["active"] if not has_context else ["passive_pre", "passive_post", "active"]
+                    
+                for context in contexts:
+                    df[f'{type}_{context}_AUC'] = df.apply(lambda row: compute_AUC(row, type, context), axis=1)
+                    df[f'{type}_{context}_Transformed AUC'] = df.apply(lambda row: 2*row[f'{type}_{context}_AUC']-1, axis=1)
 
         # Bootstrapping process for statistical analysis
         print("Starting bootstrapping process...")
         new_df = bootstrapping(df, has_context=has_context)
 
-        #new_df.to_csv(f"testing{i}.csv")
+        new_df.to_csv(f"testing{i}.csv")
 
         # Create a combined DataFrame for visualization or saving
         print('Pivotting table...')
@@ -131,8 +131,8 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2, has_
 
 
         ### save separate parquet files for each mouse :
-        combined_df.to_parquet(f'{save_path}/{mouse_name}/{mouse_name}_AUC_Selectivity2.parquet', index=False)
-        combined_df.to_csv(f'{save_path}/{mouse_name}/{mouse_name}_AUC_Selectivity.csv', index=False)
+        #combined_df.to_parquet(f'{save_path}/{mouse_name}/{mouse_name}_AUC_Selectivity2.parquet', index=False)
+        combined_df.to_csv(f'{save_path}/{mouse_name}/{mouse_name}_AUC_Selectivity_pre_post.csv', index=False)
 
         print(f"Process finished for Mouse {i+1}/{len(mouse_names)}!")
         mice_data.append(combined_df)
@@ -142,10 +142,12 @@ def AUC_generate(mouse_names = [], save_path = "", start = 0.2, stop = 0.2, has_
     df_combined = pd.concat(mice_data).reset_index(drop=True)
     os.makedirs(f'{save_path}/Overall', exist_ok=True)
 
+    """ 
     if has_context:
         df_combined.to_csv(f'{save_path}/Overall/Mice_AUC_Selectivity.csv', index=False)
     else : 
         df_combined.to_csv(f'{save_path}/Overall/No_Context_Mice_AUC_Selectivity.csv', index=False)
+    """
 
     
 
