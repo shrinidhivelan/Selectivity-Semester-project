@@ -140,10 +140,22 @@ def spike_detect(nwbfile, start=0.2, stop=0.2, has_context=True):
 
                 # Calculate pre- and post-spike counts for each lick time
                 for event in event_times:
+                    if type == 'spontaneous_licks':
+                        pre_start = event - 0.4
+                        pre_end = event - 0.2
+                        post_start = event 
+                        post_end = event + 0.2
+                    else:
+                        pre_start = event - start, event
+                        pre_stop = event
+                        post_start = event 
+                        post_end = event + stop
+
+
                     # Pre-stimulus window
-                    pre_spikes.append(count_spikes_in_window(spike_times, event - start, event))
+                    pre_spikes.append(count_spikes_in_window(spike_times, pre_start, pre_end))
                     # Post-stimulus window
-                    post_spikes.append(count_spikes_in_window(spike_times, event, event + stop))
+                    post_spikes.append(count_spikes_in_window(spike_times, post_start, post_end))
 
                 # Assign calculated spike counts to the corresponding DataFrame columns
                 if type == 'spontaneous_licks':

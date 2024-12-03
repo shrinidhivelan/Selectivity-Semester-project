@@ -8,6 +8,7 @@ from generate import *
 from AUC import *
 from helpers import *
 from tqdm import tqdm
+import seaborn as sns
 
 
 ################################ **** Functions used for plotting **** ################################
@@ -658,3 +659,120 @@ def Raster_total_context(nwbfile, start=0.5, stop=1, mouse_name='', main_folder 
             raster_path
         )
 
+
+def plot_selectivity(df, offset=2, category='whisker', context='active', has_context = 0, over_mouse = False):
+    """
+    Plots the average percentage of selective neurons per brain region across all mice.
+    
+    Parameters:
+    - df: DataFrame with 'mouse_id', 'area_acronym' (brain region), and 'selective'.
+    - offset: Distance for percentage annotation above the bars (default=2).
+    - category: Filter based on category (default='whisker').
+    """
+    if category == 'spontaneous_licks':
+        # Filter by category and context
+        df_filtered = df[(df['event'] == category)]
+
+    else:
+        df_filtered = df[(df['event'] == category) & (df['context'] == context)]
+
+    if (has_context == True) or (has_context == False):
+        df_filtered = df_filtered[df_filtered['has context']==has_context]
+    
+    # Drop NaN values in 'selective' column
+    df_filtered = df_filtered.dropna(subset=['selective'])
+
+    # Ensure 'selective' is a binary column (True/False)
+    df_filtered['selective'] = df_filtered['selective'].astype(bool)
+
+    # Calculate the percentage of selective neurons per mouse and brain region
+    if over_mouse == True:
+        percentages = df_filtered.groupby(['area_acronym','mouse_id'])['selective'].mean().reset_index()
+    else:
+        percentages = df_filtered.groupby(['area_acronym'])['selective'].mean().reset_index()
+    percentages['selective'] *= 100  # Convert to percentage
+
+    # Average percentages across mice for each brain region
+    avg_percentages = percentages.groupby('area_acronym')['selective'].mean().reset_index()
+
+    # Create the bar plot
+    plt.figure(figsize=(10, 5))  # Set figure size
+    ax = sns.barplot(x='area_acronym', y='selective', data=avg_percentages, palette='viridis')
+
+    # Add annotations to the bars
+    for i, row in avg_percentages.iterrows():
+        ax.text(i, row['selective'] + 2, f"{row['selective']:.2f}%", ha='center', va='bottom', color='black')
+
+    title = f"Percentage of Selective Neurons by Brain Region for {category}" if category=='spontaneous_licks' else f"Percentage of Selective Neurons by Brain Region for {category} with {context}"
+
+    # Set plot titles and labels
+    plt.title(title)
+    plt.xlabel('Brain Region')
+    plt.ylabel('Percentage of Selective Neurons')
+
+    # Rotate x-axis labels for better readability
+    plt.xticks(rotation=90, ha='right')
+
+    # Tight layout to ensure everything fits without overlapping
+    plt.tight_layout()
+
+    # Show the plot
+    plt.show()
+
+
+
+def plot_selectivity_direction(df, event = ''):
+
+    if event!='':
+        df = df[df['event']==event]
+
+    selective_counts = df.groupby(['mouse_id', 'direction']).size().reset_index(name='count')
+
+    # Step 2: Calculate total selective neurons per mouse_id
+    total_counts = selective_counts.groupby('mouse_id')['count'].sum().reset_index(name='total')
+
+    # Step 3: Merge and calculate percentage
+    selective_percentages = selective_counts.merge(total_counts, on='mouse_id')
+    selective_percentages['percentage'] = (selective_percentages['count'] / selective_percentages['total']) * 100
+    # to get the negative in the visualization part : 
+    selective_percentages_modified = selective_percentages.copy()
+    selective_percentages_modified.loc[selective_percentages_modified['direction'] == 'negative', 'percentage'] *= -1
+
+
+    plt.figure(figsize=(15, 8))
+
+    ax = sns.barplot(data=selective_percentages_modified, 
+                    x='mouse_id', 
+                    y='percentage', 
+                    hue='direction', 
+                    dodge=True, 
+                    palette='viridis')
+
+    # percentages title to be present :
+    for p in ax.patches:
+        percentage = f'{abs(p.get_height()):.1f}%'
+        ax.annotate(percentage, 
+                    (p.get_x() + p.get_width() / 2., p.get_height()), 
+                    ha='center', 
+                    va='bottom', 
+                    fontsize=9, 
+                    color='black', 
+                    xytext=(0, 5), 
+                    textcoords='offset points')
+
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = dict(zip(labels, handles))
+    ax.legend(unique_labels.values(), unique_labels.keys(), title='Direction')
+
+    if event != '':
+        title = f'Percentage of Selective Neurons per Mouse for {event}'
+    else:
+        title = 'Percentage of Selective Neurons per Mouse'
+
+    plt.axhline(0, color='black', linewidth=0.8)  # Add a line at y=0 for clarity
+    plt.title(title)
+    plt.ylabel('Percentage (%)')
+    plt.xlabel('Mouse ID')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.show()
