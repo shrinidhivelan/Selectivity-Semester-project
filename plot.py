@@ -253,44 +253,6 @@ def plot_roc_curve(ax, pre, post, index, cluster_ID, type="whisker", context = "
     ax.legend(loc="lower right")
 
 
-def plot_subplots(pre, post, cluster_id, type="whisker", plots_per_row=4, total_plots=667, indices = [-9999]):
-    # Define how many plots per figure
-    plots_per_figure = 100  # Adjust this to control how many plots per figure
-    num_figures = (total_plots + plots_per_figure - 1) // plots_per_figure  # Calculate number of figures needed
-    
-    for fig_index in range(num_figures):
-        # Calculate range for this figure
-        start_index = fig_index * plots_per_figure
-        end_index = min(start_index + plots_per_figure, total_plots)
-            
-
-        # Calculate number of rows needed
-        num_plots = end_index - start_index
-        rows = (num_plots + plots_per_row - 1) // plots_per_row  # Ensures enough rows
-
-        # Create subplots
-        fig, axes = plt.subplots(rows, plots_per_row, figsize=(plots_per_row * 4, rows * 4))
-
-        # Flatten axes array for easier indexing
-        axes = axes.flatten()
-
-        # Plot each ROC curve in its respective subplot
-
-        if indices[0]==-9999:
-            for i in range(start_index, end_index):
-                plot_roc_curve(axes[i - start_index], pre, post, i, cluster_id, type)
-        else:
-            for i in range(indices):
-                plot_roc_curve(axes[i], pre, post, i, cluster_id, type)
-
-        # Hide any extra subplots (if total_plots is not a perfect multiple of plots_per_row)
-        for i in range(num_plots, len(axes)):
-            axes[i].axis('off')  # Turn off unused subplots
-
-        # Adjust layout
-        plt.tight_layout()
-        plt.show()
-
 def save_roc_plots_context(arr1, arr2, cluster_id, type="whisker", indices=[-9999], mouse_name = '', context = 'passive', auc_path = ''):
     # Ensure indices list covers the desired range
     total_plots = len(arr1)
