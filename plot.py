@@ -293,7 +293,6 @@ def process_and_save_roc(mouse_name, main_path, has_context = True, types = ['wh
         cluster_id (pd.Series): Series of cluster IDs.
         mouse_name (str): Identifier for the mouse.
         main_path (str): Base path to save the ROC plots.
-
     """
 
     if not has_context:
@@ -523,9 +522,102 @@ def Raster_passive_active(units, trials, start = 0.5, stop = 1, mouse_name = '')
 
 """
 
+def compute_trial_baseline_from_peth(peri_stim_hist, bas_start, bas_stop):
+    """
+    Computes the baseline firing rate for each trial based on the peri-stimulus time histogram.
+    :param peri_stim_hist: Array of shape (N_trials, N_bins) with spike counts.
+    :param bas_start: Start index of the baseline period.
+    :param bas_stop: Stop index of the baseline period.
+    :return: Vector of size N_trials with mean baseline firing rates for each trial.
+    """
+    # Extract the baseline period and compute the mean for each trial
+    baseline_period = peri_stim_hist[:, bas_start:bas_stop]
+    trial_baselines = np.mean(baseline_period, axis=1)
+    return trial_baselines
+
+
+def compute_unit_peri_event_histogram(spike_times, event_times, bin_size, time_start, time_stop, artifact_correction=False):
+    """
+    Computes peri-stimulus time histogram for a single unit.
+    :param spike_times:  Spike times in seconds.
+    :param event_times:  Stimulus times in seconds.
+    :param bin_size: Bin size in seconds.
+    :param time_start: Start of peri-stimulus time window.
+    :param time_stop: End of peri-stimulus time window.
+    :param artifact_correction: Boolean to apply artifact correction.
+    :return: Peri-stimulus time histogram of spike counts.
+    """
+
+    # Initialize histogram
+    if artifact_correction:
+        bin_size_hist = 0.001
+        n_bins = int((time_stop - time_start) / 0.001)
+    else:
+        bin_size_hist = bin_size
+        n_bins = int((time_stop - time_start) / bin_size)
+        
+    peri_stim_hist = np.zeros((len(event_times), n_bins))
+        
+    # Compute histogram
+    for i, stim_time in enumerate(event_times):
+        spike_times_in_window = spike_times[(spike_times >= stim_time + time_start) & (spike_times < stim_time + time_stop)]
+        spike_times_in_window -= stim_time # align
+        spike_counts = np.histogram(spike_times_in_window, bins=np.arange(time_start, time_stop + bin_size_hist, bin_size_hist), density=False)[0]
+        peri_stim_hist[i,:] = spike_counts # add counts
+
+    if artifact_correction:
+        # Bin to correct for artifact
+        if bin_size_hist==0.001:
+            stim_dur = 3 # stimulus duration in msec
+            art_start = -1  # ms before stim
+            art_stop = stim_dur + 1    # ms after stim
+            art_start_bin = int(abs(time_start) / bin_size_hist) + art_start
+            art_stop_bin = int(abs(time_start) / bin_size_hist) + art_stop
+
+        # Get baseline firing rate from PETH
+        bas_stop = int(abs(time_start) / bin_size_hist) - 5 # 5 time bins before stim
+        trial_baselines = compute_trial_baseline_from_peth(peri_stim_hist,
+                                                           bas_start=0,
+                                                           bas_stop=bas_stop)
+
+        # Make Poisson noise based on baseline firing rate
+        rng = np.random.default_rng(seed=None)  # no seed for variability
+        poisson_noise = [rng.poisson(lam=trial_baselines[i], size=n_bins) for i in range(len(event_times))]
+        poisson_noise = np.array(poisson_noise)
+
+        # Replace spike counts with Poisson noise in artifact window
+        try:
+            peri_stim_hist[:, art_start_bin:art_stop_bin] = poisson_noise[:, art_start_bin:art_stop_bin]
+        except IndexError:
+            print('Index error in artifact correction. Skipping correction.')
+            print('art_start_bin:', art_start_bin)
+            return peri_stim_hist
+
+        # Rebin to desired bin size if there was artifact correction
+        if artifact_correction and bin_size != 0.001:
+            # Aggregate spike counts in bin_size in ms time bins using the sum over the bins
+            current_bin_size_ms = int(bin_size_hist * 1000)
+            new_bin_size_ms = int(bin_size * 1000)
+            n_trials = peri_stim_hist.shape[0]
+
+            peri_stim_hist_original = peri_stim_hist.copy()
+            peri_stim_hist = peri_stim_hist.reshape(n_trials, -1, new_bin_size_ms // current_bin_size_ms).sum(axis=2)
+
+            debug=False
+            if debug:
+                fig, ax = plt.subplots(1,1)
+                time = np.linspace(time_start, time_stop, peri_stim_hist.shape[1])
+                ax.plot(time,np.nanmean(peri_stim_hist_original, axis=0), c='k')
+                ax.plot(time,np.nanmean(peri_stim_hist, axis=0), c='r')
+                ax.axvline(0, c='k', linestyle='--')
+                plt.show()
+            
+    return peri_stim_hist
+
 ########## Generate plots per category
 
-def Final_spikes_context(units, trials, start=0.5, stop=1):
+#### Reformuler ceci par rapport a df final !!!!!!!!!! ####
+def Final_spikes_context(units, trials, start=0.5, stop=1, has_context = True):
     """
     Separates spike arrays for passive and active contexts.
 
@@ -539,12 +631,12 @@ def Final_spikes_context(units, trials, start=0.5, stop=1):
     - Dictionary of spike arrays for passive and active contexts.
     - clusters: List of cluster IDs corresponding to each unit.
     """
-    contexts = ['passive', 'active']
+    contexts = ['passive', 'active'] if has_context else ['active'] 
     spike_data = {}
     clusters = None
 
     for context in contexts:
-        context_trials = trials[trials["context"] == context]
+        context_trials = trials[trials["context"] == context] if has_context else trials
         whisker_trials = context_trials[context_trials["trial_type"] == "whisker_trial"]
         auditory_trials = context_trials[context_trials["trial_type"] == "auditory_trial"]
         nostim_trials = context_trials[context_trials["trial_type"] == "no_stim_trial"]
@@ -568,7 +660,7 @@ def Final_spikes_context(units, trials, start=0.5, stop=1):
     return spike_data, clusters
 
 
-def plot_raster_final_context(spike_data, cluster, mouse_name='', raster_path=''):
+def plot_raster_final_context(spike_data, cluster, mouse_name='', raster_path='', has_context = True):
     """
     Plots raster plots for passive and active contexts side by side for a given cluster.
     Includes a legend to indicate the color mapping for trial types.
@@ -579,7 +671,7 @@ def plot_raster_final_context(spike_data, cluster, mouse_name='', raster_path=''
 
     # Create a figure with two subplots (one for passive, one for active)
     fig, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
-    contexts = ['passive', 'active']
+    contexts = ['passive', 'active'] if has_context else ['active']
 
     for ax, context in zip(axes, contexts):
         if context == 'passive':
@@ -629,7 +721,7 @@ def plot_raster_final_context(spike_data, cluster, mouse_name='', raster_path=''
 
 
 
-def Raster_total_context(nwbfile, start=0.5, stop=1, mouse_name='', main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens'):
+def Raster_total_context(nwbfile, start=0.5, stop=1, mouse_name='', main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens', has_context = True):
     """
     Generates raster plots for all clusters, split by passive and active contexts.
     """
@@ -638,29 +730,192 @@ def Raster_total_context(nwbfile, start=0.5, stop=1, mouse_name='', main_folder 
     raster_path = main_folder+"/Plots/Rasters/"+mouse_name
     os.makedirs(raster_path, exist_ok=True)
 
-    spike_data, clusters = Final_spikes_context(units, trials, start, stop)
-    Nb_neurons = len(spike_data['passive']["whisker"])
+    spike_data, clusters = Final_spikes_context(units, trials, start, stop, has_context)
+    if has_context:
+        Nb_neurons = len(spike_data['passive']["whisker"])
+    else:
+        Nb_neurons = len(spike_data['active']["whisker"])
     for i in range(Nb_neurons):
-        plot_raster_final_context(
-            {
-                "passive": {
-                    "whisker": spike_data["passive"]["whisker"][i],
-                    "auditory": spike_data["passive"]["auditory"][i],
-                    "nostim": [],
+        if has_context:
+            plot_raster_final_context(
+                {
+                    "passive": {
+                        "whisker": spike_data["passive"]["whisker"][i],
+                        "auditory": spike_data["passive"]["auditory"][i],
+                        "nostim": [],
+                    },
+                    "active": {
+                        "whisker": spike_data["active"]["whisker"][i],
+                        "auditory": spike_data["active"]["auditory"][i],
+                        "nostim": spike_data["active"]["nostim"][i],
+                    }
                 },
-                "active": {
-                    "whisker": spike_data["active"]["whisker"][i],
-                    "auditory": spike_data["active"]["auditory"][i],
-                    "nostim": spike_data["active"]["nostim"][i],
-                }
-            },
-            clusters[i],
-            mouse_name,
-            raster_path
-        )
+                clusters[i],
+                mouse_name,
+                raster_path
+            )
+        else:
+            plot_raster_final_context(
+                {
+                    "active": {
+                        "whisker": spike_data["active"]["whisker"][i],
+                        "auditory": spike_data["active"]["auditory"][i],
+                        "nostim": spike_data["active"]["nostim"][i],
+                    }
+                },
+                clusters[i],
+                mouse_name,
+                raster_path
+            )
+
+    import os
+import numpy as np
+import matplotlib.pyplot as plt
+from pynwb import NWBHDF5IO
 
 
-def plot_selectivity(df, offset=2, category='whisker', context='active', has_context = 0, over_mouse = False):
+def generate_psth_plots(
+    mouse_name='AB122_20240804_134554',
+    main_path='/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/',
+    has_context=True,
+    df=pd.DataFrame()
+):
+    """
+    Generates PSTH plots for passive and active contexts based on the spike and event data from NWB files.
+    Args:
+        mouse_name (str): Name of the mouse data file
+        main_path (str): Path to the main directory containing data
+        has_context (bool): Boolean to determine if context-based plots should be created
+        df (DataFrame): DataFrame with behavioral or spike metadata
+    """
+    # Preprocess context column into 'active' or 'passive'
+    df['context_new'] = df['context'].apply(
+        lambda x: 'active' if x == 'active' else 'passive' if x in ['passive_pre', 'passive_post', 'passive'] else None
+    )
+
+    # Define the directories for saving plots
+    plots_path = os.path.join(main_path, 'Plots', 'PSTH')
+    passive_path = os.path.join(plots_path, mouse_name, 'passive')
+    active_path = os.path.join(plots_path, mouse_name, 'active')
+    context = 'context' if has_context else 'nocontext'
+    
+    # Locate the NWB file
+    nwbfile_path = os.path.join(main_path, 'Mice_data', context, mouse_name + '.nwb')
+    
+    # Open NWB file
+    io = NWBHDF5IO(nwbfile_path, 'r')
+    nwbfile = io.read()
+
+    # Create directories
+    if has_context:
+        os.makedirs(passive_path, exist_ok=True)
+    os.makedirs(active_path, exist_ok=True)
+
+    # Preprocess the data
+    units, trials = preprocessing(nwbfile)
+    check = True  # Boolean flag to toggle behavior for visualization
+    
+    # Loop over each cluster
+    for index, row in units.iterrows():
+        spike_times = row['spike_times']
+        cluster_nb = row['cluster_id']
+
+        # Define save paths for plots
+        passive_path_save = os.path.join(passive_path, f'{cluster_nb}_passive_cluster.png')
+        active_path_save = os.path.join(active_path, f'{cluster_nb}_active_cluster.png')
+
+        # PSTH Parameters
+        bin_size = 0.01  # Bin size in seconds
+        time_start = -0.5
+        time_stop = 2
+        artifact_correction = False
+
+        # Dictionary to store PSTH data
+        active_psths = {}
+        passive_psths = {}
+        active_directions = []
+        passive_directions = []
+
+        # Extract data by context and event type
+        for context_str in ['active', 'passive'] if has_context else ['active']:
+            for event in ['whisker', 'auditory', 'spontaneous_licks']:
+                event_times = extract_event_times(nwbfile, type=event, context=context_str)
+                psth = compute_unit_peri_event_histogram(
+                    spike_times, event_times, bin_size, time_start, time_stop, artifact_correction
+                )
+
+                mean_psth = np.mean(psth, axis=0)
+                if event == 'spontaneous_licks':
+                    filtered_df = df[
+                    (df['event'] == event) &
+                    (df['mouse_id'] == mouse_name) &
+                    (df['cluster_id'] == cluster_nb)
+                    ]
+                else:
+                    filtered_df = df[
+                        (df['context_new'] == context_str) &
+                        (df['event'] == event) &
+                        (df['mouse_id'] == mouse_name) &
+                        (df['cluster_id'] == cluster_nb)
+                    ]
+
+                print(cluster_nb)
+
+                # Handle case with no matching DataFrame entries
+                if not filtered_df.empty:
+                    direction_value = filtered_df['direction'].iloc[0]
+                else:
+                    direction_value = None
+                    #print("No matching rows found for:", event, context_str)
+
+                # Determine if direction is negative
+                direction = (direction_value == 'negative') if direction_value else False
+
+                # Store data based on context
+                if context_str == 'active':
+                    active_psths[event] = mean_psth
+                    active_directions.append(direction)
+                elif context_str == 'passive':
+                    passive_psths[event] = mean_psth
+                    passive_directions.append(direction)
+
+        # Create time bins
+        time_bins = np.arange(time_start, time_stop, bin_size)[:len(mean_psth)]
+
+        # Plotting Active PSTH
+        plt.figure(figsize=(10, 5))
+        for i, (event, mean_psth) in enumerate(active_psths.items()):
+            if active_directions[i]:
+                mean_psth = -mean_psth  # Negate PSTH if the condition is True
+            plt.plot(time_bins, mean_psth, linewidth=1, alpha=0.7, label=event.capitalize())
+        plt.axvline(0, linestyle='--', color='gray', linewidth=0.8)
+        plt.xlabel('Time (s)')
+        plt.ylabel('Mean Spike Count')
+        title = 'Active PSTHs' if check else 'Active PSTHs (-)'
+        plt.title(title)
+        plt.legend(title="Event Type")
+        plt.tight_layout()
+        plt.savefig(active_path_save, format="png")
+        plt.close()
+
+        # Plotting Passive PSTH only if has_context is True
+        if has_context:
+            plt.figure(figsize=(10, 5))
+            for j, (event, mean_psth) in enumerate(passive_psths.items()):
+                if passive_directions[j]:
+                    mean_psth = -mean_psth
+                plt.plot(time_bins, mean_psth, linewidth=1, alpha=0.7, label=event.capitalize())
+            plt.axvline(0, linestyle='--', color='gray', linewidth=0.8)
+            plt.xlabel('Time (s)')
+            plt.ylabel('Mean Spike Count')
+            title2 = 'Passive PSTHs' if check else 'Passive PSTHs (-)'
+            plt.legend(title=title2)
+            plt.tight_layout()
+            plt.savefig(passive_path_save, format="png")
+            plt.close()
+
+
+def plot_selectivity(df, offset=2, category='whisker', context='active', has_context=0, over_mouse=False):
     """
     Plots the average percentage of selective neurons per brain region across all mice.
     
@@ -670,14 +925,14 @@ def plot_selectivity(df, offset=2, category='whisker', context='active', has_con
     - category: Filter based on category (default='whisker').
     """
     if category == 'spontaneous_licks':
-        # Filter by category and context
+        # Filter by category
         df_filtered = df[(df['event'] == category)]
-
     else:
+        # Filter by category and context
         df_filtered = df[(df['event'] == category) & (df['context'] == context)]
 
     if (has_context == True) or (has_context == False):
-        df_filtered = df_filtered[df_filtered['has context']==has_context]
+        df_filtered = df_filtered[df_filtered['has context'] == has_context]
     
     # Drop NaN values in 'selective' column
     df_filtered = df_filtered.dropna(subset=['selective'])
@@ -686,8 +941,8 @@ def plot_selectivity(df, offset=2, category='whisker', context='active', has_con
     df_filtered['selective'] = df_filtered['selective'].astype(bool)
 
     # Calculate the percentage of selective neurons per mouse and brain region
-    if over_mouse == True:
-        percentages = df_filtered.groupby(['area_acronym','mouse_id'])['selective'].mean().reset_index()
+    if over_mouse:
+        percentages = df_filtered.groupby(['area_acronym', 'mouse_id'])['selective'].mean().reset_index()
     else:
         percentages = df_filtered.groupby(['area_acronym'])['selective'].mean().reset_index()
     percentages['selective'] *= 100  # Convert to percentage
@@ -695,25 +950,29 @@ def plot_selectivity(df, offset=2, category='whisker', context='active', has_con
     # Average percentages across mice for each brain region
     avg_percentages = percentages.groupby('area_acronym')['selective'].mean().reset_index()
 
-    # Create the bar plot
+    # Get the unique order of brain regions (area_acronym)
+    category_order = avg_percentages['area_acronym'].tolist()
+
+    # Create the bar plot with explicit order
     plt.figure(figsize=(10, 5))  # Set figure size
-    ax = sns.barplot(x='area_acronym', y='selective', data=avg_percentages, palette='viridis')
+    ax = sns.barplot(x='area_acronym', y='selective', data=avg_percentages, palette='viridis', order=category_order)
 
     # Add annotations to the bars
     for i, row in avg_percentages.iterrows():
-        ax.text(i, row['selective'] + 2, f"{row['selective']:.2f}%", ha='center', va='bottom', color='black')
+        ax.text(i, row['selective'] + offset, f"{row['selective']:.2f}%", ha='center', va='bottom', color='black')
 
-    title = f"Percentage of Selective Neurons by Brain Region for {category}" if category=='spontaneous_licks' else f"Percentage of Selective Neurons by Brain Region for {category} with {context}"
-
-    # Set plot titles and labels
+    # Title and labels
+    title = (f"Percentage of Selective Neurons by Brain Region for {category}"
+             if category == 'spontaneous_licks' else
+             f"Percentage of Selective Neurons by Brain Region for {category} with {context}")
     plt.title(title)
     plt.xlabel('Brain Region')
     plt.ylabel('Percentage of Selective Neurons')
 
     # Rotate x-axis labels for better readability
-    plt.xticks(rotation=90, ha='right')
+    plt.xticks(rotation=90, ha='center')
 
-    # Tight layout to ensure everything fits without overlapping
+    # Tight layout
     plt.tight_layout()
 
     # Show the plot
@@ -721,58 +980,148 @@ def plot_selectivity(df, offset=2, category='whisker', context='active', has_con
 
 
 
-def plot_selectivity_direction(df, event = ''):
 
-    if event!='':
-        df = df[df['event']==event]
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+def plot_selectivity_direction_mice(df, event=''):
+
+    # If filtering by event, only take rows corresponding to the given event
+    if event != '':
+        df = df[df['event'] == event]
+
+    # Group by mouse_id and direction to calculate counts
     selective_counts = df.groupby(['mouse_id', 'direction']).size().reset_index(name='count')
 
-    # Step 2: Calculate total selective neurons per mouse_id
+    # Total counts for normalization purposes
     total_counts = selective_counts.groupby('mouse_id')['count'].sum().reset_index(name='total')
 
-    # Step 3: Merge and calculate percentage
+    # Merge to compute percentage of selectivity per mouse
     selective_percentages = selective_counts.merge(total_counts, on='mouse_id')
     selective_percentages['percentage'] = (selective_percentages['count'] / selective_percentages['total']) * 100
-    # to get the negative in the visualization part : 
-    selective_percentages_modified = selective_percentages.copy()
-    selective_percentages_modified.loc[selective_percentages_modified['direction'] == 'negative', 'percentage'] *= -1
 
+    # Adjust visualization values:
+    # - Keep positive responses as-is
+    # - For negative responses, map their magnitude to "below the baseline"
+    selective_percentages['visual_percentage'] = selective_percentages.apply(
+        lambda row: -row['percentage'] if row['direction'] == 'negative' else row['percentage'],
+        axis=1
+    )
 
+    # Plotting
     plt.figure(figsize=(15, 8))
 
-    ax = sns.barplot(data=selective_percentages_modified, 
-                    x='mouse_id', 
-                    y='percentage', 
-                    hue='direction', 
-                    dodge=True, 
-                    palette='viridis')
+    # Create the bar plot with seaborn
+    ax = sns.barplot(
+        data=selective_percentages,
+        x='mouse_id',
+        y='visual_percentage',
+        hue='direction',
+        dodge=True,
+        palette='viridis'
+    )
 
-    # percentages title to be present :
+    # Annotate the bars
     for p in ax.patches:
-        percentage = f'{abs(p.get_height()):.1f}%'
-        ax.annotate(percentage, 
-                    (p.get_x() + p.get_width() / 2., p.get_height()), 
-                    ha='center', 
-                    va='bottom', 
-                    fontsize=9, 
-                    color='black', 
-                    xytext=(0, 5), 
-                    textcoords='offset points')
+        percentage = f"{abs(p.get_height()):.1f}%"  # Always annotate using magnitude
+        ax.annotate(
+            percentage,
+            (p.get_x() + p.get_width() / 2., p.get_height()),
+            ha='center',
+            va='bottom',
+            fontsize=9,
+            color='black',
+            xytext=(0, 5),
+            textcoords='offset points'
+        )
 
+    # Adjust legends to avoid duplicates
     handles, labels = ax.get_legend_handles_labels()
     unique_labels = dict(zip(labels, handles))
     ax.legend(unique_labels.values(), unique_labels.keys(), title='Direction')
 
+    # Set axis labels and titles
     if event != '':
         title = f'Percentage of Selective Neurons per Mouse for {event}'
     else:
         title = 'Percentage of Selective Neurons per Mouse'
 
-    plt.axhline(0, color='black', linewidth=0.8)  # Add a line at y=0 for clarity
+    plt.axhline(0, color='black', linewidth=0.8)  # Reference line at baseline
     plt.title(title)
     plt.ylabel('Percentage (%)')
     plt.xlabel('Mouse ID')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     plt.show()
+
+
+
+
+def plot_selectivity_direction_event_direction(df, event=''):
+
+
+    # Group by mouse_id and direction to counts
+    selective_counts = df.groupby(['event', 'direction']).size().reset_index(name='count')
+
+    # Total counts for normalization purposes
+    total_counts = selective_counts.groupby('event')['count'].sum().reset_index(name='total')
+
+    # Merge to compute percentage of selectivity per mouse
+    selective_percentages = selective_counts.merge(total_counts, on='event')
+    selective_percentages['percentage'] = (selective_percentages['count'] / selective_percentages['total']) * 100
+
+    # Adjust visualization values:
+    # - Keep positive responses as-is
+    # - For negative responses, map their magnitude to "below the baseline"
+    selective_percentages['visual_percentage'] = selective_percentages.apply(
+        lambda row: -row['percentage'] if row['direction'] == 'negative' else row['percentage'],
+        axis=1
+    )
+
+    # Plotting
+    plt.figure(figsize=(15, 8))
+
+    # Create the bar plot with seaborn
+    ax = sns.barplot(
+        data=selective_percentages,
+        x='event',
+        y='visual_percentage',
+        hue='direction',
+        dodge=True,
+        palette='viridis'
+    )
+
+    # Annotate the bars
+    for p in ax.patches:
+        percentage = f"{abs(p.get_height()):.1f}%"  # Always annotate using magnitude
+        ax.annotate(
+            percentage,
+            (p.get_x() + p.get_width() / 2., p.get_height()),
+            ha='center',
+            va='bottom',
+            fontsize=9,
+            color='black',
+            xytext=(0, 5),
+            textcoords='offset points'
+        )
+
+    # Adjust legends to avoid duplicates
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = dict(zip(labels, handles))
+    ax.legend(unique_labels.values(), unique_labels.keys(), title='Direction')
+
+    # Set axis labels and titles
+    if event != '':
+        title = f'Percentage of Selective Neurons per Mouse for {event}'
+    else:
+        title = 'Percentage of Selective Neurons per Mouse'
+
+    plt.axhline(0, color='black', linewidth=0.8)  # Reference line at baseline
+    plt.title(title)
+    plt.ylabel('Percentage (%)')
+    plt.xlabel('Event')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.show()
+
+

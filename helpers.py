@@ -1,4 +1,14 @@
 import pandas as pd
+import os
+import ast
+import pathlib
+import sys
+from pynwb import NWBHDF5IO
+from pathlib import Path
+
+
+
+
 
 ########### Find functions to generate the data ###########
 
@@ -77,15 +87,13 @@ def extract_event_times(nwbfile, type = 'whisker', context = 'passive', has_cont
             event_time =  trials[
                 (trials[type + '_stim'] == 1) &  # Stimulus type must match
                 (trials['lick_flag'] == 1) &    # Lick flag must be true
-                (trials['context_new'] == context)  # Context must match
+                (trials['context'] == context)  # Context must match
             ]['start_time'].values
         else: 
             event_time = trials[
                 (trials[type + '_stim'] == 1) &  # Stimulus type must match
-                (trials['context_new'] == context)  # Context must match
+                (trials['context'] == context)  # Context must match
             ]['start_time'].values
-
-
     return event_time
 
 
@@ -146,8 +154,8 @@ def spike_detect(nwbfile, start=0.2, stop=0.2, has_context=True):
                         post_start = event 
                         post_end = event + 0.2
                     else:
-                        pre_start = event - start, event
-                        pre_stop = event
+                        pre_start = event - start
+                        pre_end = event
                         post_start = event 
                         post_end = event + stop
 
@@ -318,7 +326,7 @@ def filtered_lick_times(nwbfile, interval = 1):
 def convert_to_csv(mouse_names):
     main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/'
     # Create a list of Parquet file paths
-    file_paths = [f"{main_folder}{mouse}/{mouse}_AUC_Selectivity2.parquet" for mouse in mouse_names]
+    file_paths = [f"{main_folder}{mouse}/{mouse}_AUC_Selectivity.parquet" for mouse in mouse_names]
     for i, file in enumerate(file_paths):
         print(f"Doing file {i+1}/{len(file_paths)}")
         df = pd.read_parquet(file)
@@ -351,14 +359,18 @@ def put_together(main_folder = '', mouse_names = ['AB124_20240815_111810','AB125
 
     df_combined.to_csv(main_folder+'/Overall/complete_data'+ctxt+'.csv', index=False)
 
-def combine_files(main_folder):
+def combine_files(main_folder, folder_path_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/context', folder_path_no_context='/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/nocontext', ):
+    
     
     df_no_context = pd.read_csv(main_folder+'/Overall/complete_data_no_context.csv')
     df_context = pd.read_csv(main_folder+'/Overall/complete_data.csv')
     df_no_context['has context'] = False
     df_context['has context'] = True
     df_total = pd.concat([df_no_context, df_context]).reset_index(drop=True) 
+    
+    df_total = merge_wh_reward(df_total, main_folder, folder_path_context, folder_path_no_context)
     df_total.to_csv(main_folder+'/Overall/overall_combined.csv', index=False)
+
  
 
 
@@ -410,3 +422,61 @@ def process_area_acronyms(peth_table): #TODO: use this function to combine futur
     print(peth_table[peth_table['ccf_name'].isnull()]['ccf_acronym'].unique())
 
     return peth_table
+
+
+#folder_path_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/context'
+#folder_path_no_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/nocontext'
+
+def info_wh_reward(folder_save, folder_path_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/context', folder_path_no_context='/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/nocontext', ):
+    mouse_names = []
+    wh_rewards = []
+
+    for folder in [folder_path_context, folder_path_no_context]:
+        Path_folder = Path(folder) 
+
+        for filepath in Path_folder.glob("*.nwb"):        
+                if not filepath.name.startswith("._"):  # Skip hidden files 
+                    print(f"Processing file: {filepath.name}")
+                    io = NWBHDF5IO(str(filepath), 'r') 
+                    nwbfile = io.read()
+                
+                    mouse_name = filepath.name[:-4]  
+                    mouse_names.append(mouse_name)
+                    experiment_dict = ast.literal_eval(nwbfile.experiment_description)
+
+                    # Access the wh_reward value
+                    wh_reward = experiment_dict['wh_reward']
+
+                    print("wh_reward:", wh_reward)
+                    if wh_reward == 0: 
+                        wh_rewards.append('R-')
+                    else:
+                        wh_rewards.append('R+')
+                        
+    df_wh_rewards_info = pd.DataFrame({
+        "mouse_id": mouse_names,
+        "wh_reward": wh_rewards
+    })
+
+    overall_path = os.path.join(folder_save, 'Overall')
+    os.makedirs(overall_path, exist_ok=True)
+    path_to_save = os.path.join(overall_path, 'wh_rewards_info.csv')
+    df_wh_rewards_info.to_csv(path_to_save)
+    return df_wh_rewards_info
+
+
+
+def merge_wh_reward(df, save_file, folder_path_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/context', folder_path_no_context='/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/nocontext', ):
+    path = os.path.join(save_file,'Overall','wh_rewards_info.csv')
+    path_exists = Path(path)
+    if path_exists.exists():
+        print(f"The file '{path}' exists.")
+        df_wh_rewards_info = pd.read_csv(path)
+    else:
+        print(f"The file '{path}' does not exist. Let's create it!")
+        df_wh_rewards_info = info_wh_reward(save_file, folder_path_context, folder_path_no_context)
+    
+    merged_df = df.merge(df_wh_rewards_info, on="mouse_id")
+    return merged_df
+
+

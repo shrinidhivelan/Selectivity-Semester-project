@@ -11,20 +11,17 @@ def main():
 
     folder_path_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/context'
     folder_path_no_context = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Mice_data/nocontext'
-    have_context = []
     save_path = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data'
+    main_path = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens'
 
     print("Starting the analysis...")
     
     #### (1) Generate 1 mouse name and create the selectivity parquet file: ####
 
-    for has_context in have_context:
+    for has_context in []:
         if has_context == True:
             print('Starting the process for data with context information...')
-            #mouse_names = generate_mice_data(folder_path_context, save_path, context=True)
-            #AUC_generate(mouse_names, save_path, has_context=True)
-            #put_together(save_path, mouse_names, True)
-            mouse_names = ['AB116_20240724_102941']
+            mouse_names = generate_mice_data(folder_path_context, save_path, context=True)
             AUC_generate(mouse_names, save_path, has_context=True)
 
 
@@ -32,7 +29,6 @@ def main():
             print('Starting the process for data with no context information...')
             mouse_names = generate_mice_data(folder_path_no_context, save_path, context=False)
             AUC_generate(mouse_names, save_path, has_context=False)
-            #put_together(save_path, mouse_names, False)
     
 
     mouse_names_context = ['AB120_20240811_143102','AB121_20240813_125401','AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
@@ -46,6 +42,19 @@ def main():
     #put_together(save_path, mouse_names_no_context, False)
 
     #combine_files(save_path)
+
+
+    for mouse_names in [mouse_names_context, mouse_names_no_context]:
+        for mouse in mouse_names:
+            path_mouse = os.path.join(save_path,mouse, mouse+'_AUC_Selectivity_pre_post.csv')
+            df = pd.read_csv('/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens/Data/Overall/overall_combined.csv')
+            print(path_mouse)
+            print('************')
+            if mouse_names == mouse_names_context:
+                generate_psth_plots(mouse, main_path, True, df)
+            else:
+                generate_psth_plots(mouse, main_path, False, df)
+            
 
 
 
@@ -79,14 +88,14 @@ def main():
             nwbfile = NWBHDF5IO(main_data_per_mouse, mode='r').read()
             Raster_total_context(nwbfile, start=0.5, stop=1, mouse_name=mouse, main_folder = '/Volumes/LaCie/EPFL/Mastersem3/Semester Project Lsens')
     """
-
      
     #### (2) Create the ROC Analysis parquet file ####
 
     #### (2a) Generate AUC plots :
-    for folder_path in [folder_path_context, folder_path_no_context]:
+    for folder_path in []: #[folder_path_context, folder_path_no_context]:
         if folder_path == folder_path_context:
-            mouse_names = ['AB120_20240811_143102','AB121_20240813_125401','AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634','AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
+            #['AB120_20240811_143102','AB121_20240813_125401','AB124_20240815_111810','AB125_20240817_123403','AB126_20240822_114405','AB130_20240902_123634']
+            mouse_names = ['AB129_20240828_112850','AB128_20240829_112813','AB127_20240821_103757',
                'AB123_20240806_110231', 'AB122_20240804_134554', 'AB119_20240731_102619', 'AB117_20240723_125437', 'AB116_20240724_102941']
         else:
             mouse_names = ['AB077_20230531_143839','AB080_20230622_152205', 'AB082_20230630_101353',
@@ -95,7 +104,10 @@ def main():
                    'AB102_20240309_114107', 'AB104_20240313_145433', 'AB107_20240318_121423']
         
         for mouse in mouse_names:
-            process_and_save_roc(mouse, save_path)
+            if folder_path == folder_path_no_context:
+                process_and_save_roc(mouse, save_path, False)
+            else:
+                process_and_save_roc(mouse, save_path)
     
     
             
