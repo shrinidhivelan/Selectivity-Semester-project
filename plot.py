@@ -914,6 +914,112 @@ def generate_psth_plots(
             plt.savefig(passive_path_save, format="png")
             plt.close()
 
+import numpy as np
+import pandas as pd
+import os
+import matplotlib.pyplot as plt
+from pynwb import NWBHDF5IO
+from tqdm import tqdm
+
+def process_psth(
+    main_path, 
+    mouse_names, 
+    region_of_interest, 
+    events, 
+    bin_size, 
+    time_start, 
+    time_stop, 
+    artifact_correction, 
+    preprocessing, 
+    process_area_acronyms, 
+    extract_event_times, 
+    compute_unit_peri_event_histogram, 
+    df,
+    reward
+
+):
+    plots_path = os.path.join(main_path, 'Plots', 'PSTH', region_of_interest)
+    df.loc[df['event'] == 'spontaneous_licks', 'context'] = 'spontaneous'
+    df['new_context'] = df['context'].replace({'passive_pre': 'passive', 'passive_post': 'passive'})
+
+    for event in events:
+        contexts = ['spontaneous'] if event == 'spontaneous_licks' else ['active', 'passive']
+        
+        for context_str in contexts:
+            print(f"\nProcessing Event: {event}, Context: {context_str}")
+            negative_psth = []
+            positive_psth = []
+            time_bins = np.arange(time_start, time_stop, bin_size)
+            
+            for mouse_name in mouse_names:
+                print(f"  Processing Mouse: {mouse_name}")
+                nwbfile_path = os.path.join(main_path, 'Mice_data', 'context', f"{mouse_name}.nwb")
+                io = NWBHDF5IO(nwbfile_path, 'r')
+                nwbfile = io.read()
+
+                units, _ = preprocessing(nwbfile)
+                units = process_area_acronyms(units)
+                filtered_units = units[units['area_acronym'] == region_of_interest]
+                
+                region_trials = df[df['area_acronym'] == region_of_interest]
+                filtered_df = region_trials[
+                    (region_trials['new_context'] == context_str) & 
+                    (region_trials['event'] == event) &
+                    (region_trials['mouse_id'] == mouse_name)
+                ]
+
+                print(f"    Filtered Trials: {len(filtered_df)} trials for Region: {region_of_interest}")
+
+                if not filtered_df.empty:
+                    for _, row in tqdm(filtered_units.iterrows(), total=len(filtered_units), desc="Processing Units"):
+                        spike_times = row['spike_times']
+                        cluster_nb = row['cluster_id']
+
+                        event_times = extract_event_times(nwbfile, type=event, context=context_str)
+                        psth = compute_unit_peri_event_histogram(
+                            spike_times, event_times, bin_size, time_start, time_stop, artifact_correction
+                        )
+                        mean_psth = np.mean(psth, axis=0)
+
+                        direction_value = filtered_df[filtered_df['cluster_id'] == int(cluster_nb)]['direction'].values[0] if not filtered_df.empty else None
+                        if direction_value == 'negative':
+                            negative_psth.append(mean_psth)
+                        elif direction_value == 'positive':
+                            positive_psth.append(mean_psth)
+
+                    print(f"    Collected PSTHs: {len(negative_psth)} Negative and {len(positive_psth)} Positive")
+                else:
+                    print(f"    No valid trials for Mouse: {mouse_name}, Event: {event}, Context: {context_str}")
+
+            avg_negative_psth = np.mean(negative_psth, axis=0) if negative_psth else None
+            avg_positive_psth = np.mean(positive_psth, axis=0) if positive_psth else None
+
+            plt.figure(figsize=(10, 5))
+            context_name = 'Spontaneous' if pd.isna(context_str) else context_str
+            if avg_negative_psth is not None:
+                plt.plot(time_bins, avg_negative_psth, label=f'{event} - Negative Direction', linewidth=2)
+            if avg_positive_psth is not None:
+                plt.plot(time_bins, avg_positive_psth, label=f'{event} - Positive Direction', linewidth=2)
+
+            plt.axvline(0, linestyle='--', color='gray', linewidth=0.8)
+            plt.xlabel('Time (s)')
+            plt.ylabel('Mean Spike Count')
+            plt.title(f'{context_name.capitalize()} PSTH for {event.capitalize()} Event')
+            plt.legend(title="Direction")
+            plt.tight_layout()
+
+            plot_save_path = os.path.join(plots_path, f'{event}_{context_name}_{reward}.png')
+            os.makedirs(os.path.dirname(plot_save_path), exist_ok=True)
+            plt.savefig(plot_save_path, format="png")
+            print(f"    Plot saved to: {plot_save_path}")
+            plt.close()
+
+    print("Processing Complete.")
+
+
+
+
+
 
 def plot_selectivity(df, offset=2, category='whisker', context='active', has_context=0, over_mouse=False):
     """
