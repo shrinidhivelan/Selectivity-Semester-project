@@ -935,7 +935,8 @@ def process_psth(
     extract_event_times, 
     compute_unit_peri_event_histogram, 
     df,
-    reward
+    reward,
+    r
 
 ):
     plots_path = os.path.join(main_path, 'Plots', 'PSTH', region_of_interest)
@@ -1008,7 +1009,7 @@ def process_psth(
             plt.legend(title="Direction")
             plt.tight_layout()
 
-            plot_save_path = os.path.join(plots_path, f'{event}_{context_name}_{reward}.png')
+            plot_save_path = os.path.join(plots_path, f'{event}_{context_name}_{r}.png')
             os.makedirs(os.path.dirname(plot_save_path), exist_ok=True)
             plt.savefig(plot_save_path, format="png")
             print(f"    Plot saved to: {plot_save_path}")

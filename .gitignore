@@ -2,6 +2,9 @@
 Data/
 plots/
 mice/
+figures/
+figures_direction/
+figures_no_separation/
 
 # text file for personal use:
 terms_definition_throughout.txt

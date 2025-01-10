@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, roc_auc_score 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import os
 
 
 
-def plot_bootstrap_auc_distribution(df, bootstrap_aucs, original_auc, cluster_id, cluster_nb):
+def plot_bootstrap_auc_distribution(bootstrap_aucs, original_auc, cluster_id, save_file, type, context):
     """
     Plots the bootstrap AUC distribution for a specific cluster, with the original AUC shown as a dashed line.
 
@@ -17,23 +18,28 @@ def plot_bootstrap_auc_distribution(df, bootstrap_aucs, original_auc, cluster_id
     - cluster_id: Identifier of the cluster for labeling the plot.
     """
 
-    i = df["cluster_id"].tolist().index(str(cluster_nb))
+    #i = df["cluster_id"].tolist().index(str(cluster_nb))
 
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(15, 10))
 
     # Plot the histogram of bootstrap AUCs
     plt.hist(bootstrap_aucs, bins=30, color='skyblue', edgecolor='black', alpha=0.6, label='Bootstrap AUCs')
 
     # Plot the original AUC as a vertical line
-    plt.axvline(original_auc[i], color='red', linestyle='--', linewidth=2, label=f'Original AUC = {original_auc[i]:.2f}')
-
+    #plt.axvline(original_auc[i], color='red', linestyle='--', linewidth=2, label=f'Original AUC = {original_auc[i]:.2f}')
+    plt.axvline(original_auc, color='red', linestyle='--', linewidth=2, label=f'Original AUC = {original_auc:.2f}')
     # Adding labels and title
-    plt.xlabel('AUC')
-    plt.ylabel('Frequency')
-    plt.title(f'Bootstrap AUC Distribution for Cluster ID: {cluster_id[i]}')
-    plt.legend()
+    plt.xlabel('AUC', fontsize = 25)
+    plt.xticks(fontsize = 22)
+    plt.yticks(fontsize = 22)
+    plt.ylabel('Frequency', fontsize = 25)
+    plt.title(f'Bootstrap AUC Distribution for Cluster ID: {cluster_id}\n for type {type} and context {context}', fontsize = 25)
+    plt.legend(fontsize = 20)
     plt.tight_layout()
-    plt.show()
+    #plt.show()
+    os.makedirs(os.path.join(save_file, type), exist_ok=True)
+    path_to_save = os.path.join(save_file, type, f'bootstrap_auc_cluster_{cluster_id}_{type}_{context}.png')
+    plt.savefig(path_to_save)
 
 
 def calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type="whisker"):
@@ -59,10 +65,11 @@ def calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type="whisker"):
 
 
 
-def perform_bootstrap_roc_analysis(whisker_pre, whisker_post, cluster_id, n_iterations=1000, type="whisker"):
+def perform_bootstrap_roc_analysis(whisker_pre, whisker_post, cluster_id, n_iterations=1000, type="whisker", save_plots = False, save_file = '', context = ''):
     p_values_pos = []
     p_values_neg = []
     original_aucs = []  
+    print(cluster_id)
     
     # Iterate over each cluster
     for i in tqdm(range(len(cluster_id)), desc="Processing Clusters"):
@@ -93,6 +100,8 @@ def perform_bootstrap_roc_analysis(whisker_pre, whisker_post, cluster_id, n_iter
 
         # Convert to numpy array for easier calculations
         bootstrap_aucs = np.array(bootstrap_aucs)
+        if (save_plots):
+            plot_bootstrap_auc_distribution(bootstrap_aucs, roc_auc, cluster_id[i], save_file, type, context)
 
         # Calculate p-values
         p_value_pos = np.sum(bootstrap_aucs >= roc_auc) / n_iterations
@@ -162,16 +171,17 @@ def bootstrap_columns(old_df, p_values_pos, p_values_neg, bootstrap_aucs, type =
 
 
 
-def bootstrapping(old_df, nb_iterations = 1000, has_context = True):
+def bootstrapping(old_df, nb_iterations = 1000, has_context = True, save_plots = False, save_file = ''):
     df = old_df.copy()
 
     types = ['whisker', 'auditory', 'wh_vs_aud', 'spontaneous_licks']
 
     for type in types:
         if type == "spontaneous_licks":            
+            print(df["cluster_id"])
             contexts=''
             print("Starting bootstrapping for spontaneous_licks...")
-            p_values_pos, p_values_neg, bootstrap_aucs, original_aucs = perform_bootstrap_roc_analysis(df['spontaneous_licks_pre_spikes'], df['spontaneous_licks_post_spikes'], df["cluster_id"], nb_iterations, type)
+            p_values_pos, p_values_neg, bootstrap_aucs, original_aucs = perform_bootstrap_roc_analysis(df['spontaneous_licks_pre_spikes'], df['spontaneous_licks_post_spikes'], df["cluster_id"], nb_iterations, type, save_plots, save_file)
             df[f"p-values positive {type}"] = p_values_pos
             df[f"p-values negative {type}"] = p_values_neg
 
@@ -197,8 +207,9 @@ def bootstrapping(old_df, nb_iterations = 1000, has_context = True):
                     post = f'{type}_{context}_post_spikes'
 
                 print(f"Starting bootstrapping for {context} {type} stimulation...")
+                print(df['cluster_id'])
                 
-                p_values_pos, p_values_neg, bootstrap_aucs, original_aucs = perform_bootstrap_roc_analysis(df[pre], df[post], df["cluster_id"], nb_iterations, type)
+                p_values_pos, p_values_neg, bootstrap_aucs, original_aucs = perform_bootstrap_roc_analysis(df[pre], df[post], df["cluster_id"], nb_iterations, type, save_plots, save_file, context)
                 
                 df[f"p-values positive {type+context}"] = p_values_pos
                 df[f"p-values negative {type+context}"] = p_values_neg
