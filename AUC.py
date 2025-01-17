@@ -45,7 +45,8 @@ def plot_bootstrap_auc_distribution(bootstrap_aucs, original_auc, cluster_id, sa
 def calculate_ROC(whisker_pre, whisker_post, index, cluster_ID, type="whisker"):
     # Combine data and labels
     whisker_spike_counts = np.concatenate([whisker_pre[index], whisker_post[index]])
-    labels = np.concatenate([np.ones(len(whisker_pre[index])), np.zeros(len(whisker_post[index]))])
+    #labels = np.concatenate([np.ones(len(whisker_pre[index])), np.zeros(len(whisker_post[index]))])
+    labels = np.concatenate([np.zeros(len(whisker_pre[index])), np.ones(len(whisker_post[index]))])
     clu_id = cluster_ID[index]
 
 
@@ -114,7 +115,11 @@ def perform_bootstrap_roc_analysis(whisker_pre, whisker_post, cluster_id, n_iter
     return p_values_pos, p_values_neg, bootstrap_aucs, original_aucs
 
 
+
 def calculate_ROC_individual(pre, post, cluster_ID):
+    """
+    Function used to compute the AUC plots
+    """
     # Combine data and labels
     whisker_spike_counts = np.concatenate([pre, post])
     len_per_element_pre = len(pre)
